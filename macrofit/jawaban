@@ -1,0 +1,63 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/user_model.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // LOGIKA REGISTER
+  Future<String?> registerUser({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+  }) async {
+    try {
+      // 1. Buat User di Firebase Auth
+      UserCredential result = await _auth.createUserWithEmailAndPassword(
+      //email yg kiri merupakan properti authenticator, dan kanan merupakan email yang diinput user sama hal nya dengan password 
+        email: email,
+        password: password,
+      );
+
+      User? user = result.user;
+
+      if (user != null) {
+        // 2. Buat objek UserModel
+        UserModel newUser = UserModel(
+          uid: user.uid,
+          firstName: firstName,
+          lastName: lastName,
+          email: email,
+        );
+
+        // 3. Simpan ke Firestore menggunakan UID yang sama
+        await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
+
+        return "success";
+      }
+    } on FirebaseAuthException catch (e) {
+      return e
+          .message; // Mengembalikan pesan error (misal: email sudah terpakai)
+    } catch (e) {
+      return e.toString();
+    }
+    return "Terjadi kesalahan";
+  }
+
+  // LOGIKA LOGIN
+  Future<String?> loginUser(String email, String password) async {
+    try {
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      return "success";
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    }
+  }
+
+  // LOGIKA LOGOUT
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+}
