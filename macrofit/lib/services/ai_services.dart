@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AIService {
   static const String _basePrompt = '''
@@ -24,7 +25,7 @@ class AIService {
   Gunakan bahasa Indonesia. Kembalikan HANYA JSON mentah.
 ''';
 
-  final String _apiKey = "AIzaSyCcAxphCcXchMFaxoJM82xt62a7ASeWsYo";
+  final _apiKey = dotenv.env['GEMINI_API_KEY']!;
 
   GenerativeModel _getModel() {
     return GenerativeModel(

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/nutrition_model.dart';
+import 'package:flutter/foundation.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -62,6 +63,8 @@ class DatabaseService {
   //remove water intake
   Future<void> removeWaterIntake(String uid, int amount) async {
     String today = DateTime.now().toString().split(' ')[0];
+
+    // Pastikan referensi koleksi sesuai dengan struktur Firestore Anda
     DocumentReference dailyRef = _firestore
         .collection("users")
         .doc(uid)
@@ -69,22 +72,32 @@ class DatabaseService {
         .doc(today);
 
     try {
-      // Kita gunakan Transaction agar lebih aman saat pengambilan data current
-      await _firestore.runTransaction((transaction) async {
-        DocumentSnapshot snap = await transaction.get(dailyRef);
+      // Menambahkan timeout untuk mencegah aplikasi hang jika koneksi buruk
+      await _firestore
+          .runTransaction((transaction) async {
+            DocumentSnapshot snap = await transaction.get(dailyRef);
 
-        if (snap.exists) {
-          Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
-          double current = (data['water_ml'] ?? 0).toDouble();
+            if (snap.exists) {
+              Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
 
-          // Logika: Jangan biarkan air jadi negatif di bawah 0
-          double newValue = (current - amount) < 0 ? 0 : (current - amount);
+              // Menggunakan .toDouble() untuk memastikan konsistensi tipe data num
+              double current = (data['water_ml'] ?? 0).toDouble();
 
-          transaction.update(dailyRef, {'water_ml': newValue});
-        }
-      });
+              // Menggunakan .clamp untuk logika yang lebih bersih: minimal 0, maksimal tidak terbatas
+              double newValue = (current - amount).clamp(0.0, double.infinity);
+
+              transaction.update(dailyRef, {'water_ml': newValue});
+            }
+          })
+          .timeout(
+            const Duration(seconds: 10),
+          ); // Batasi waktu tunggu transaksi
     } catch (e) {
-      print("Error Remove Water: $e");
+      // Menggunakan debugPrint lebih disarankan untuk logging aplikasi Flutter
+      debugPrint("MacroFit Error - Remove Water: $e");
+
+      // Melemparkan error kembali agar UI bisa menangkap dan menampilkan SnackBar
+      throw Exception("Gagal mengurangi data air: $e");
     }
   }
 

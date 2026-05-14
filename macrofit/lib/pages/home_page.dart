@@ -7,6 +7,10 @@ import '../services/database_services.dart';
 import '../services/ai_services.dart';
 import '../widgets/food_input_sheet.dart';
 import '../widgets/Daily_Insight_banner.dart';
+import '../widgets/welcome_header.dart';
+import '../widgets/calorie_target_card.dart';
+import '../widgets/nutritional_card.dart';
+import '../widgets/water_tracker_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,6 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _tempFoodData;
+  bool _isSaving = false;
 
   void _showVerificationCard(Map<String, dynamic> data) {
     setState(() {
@@ -71,20 +76,48 @@ class _HomePageState extends State<HomePage> {
 
   void _confirmSaveFood() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null && _tempFoodData != null) {
-      await DatabaseService().saveFoodLog(user.uid, _tempFoodData!);
 
-      // Cek mounted lagi sebelum setState
-      if (!mounted) return;
-
+    // Pastikan data ada dan tidak sedang dalam proses penyimpanan (mencegah double tap)
+    if (user != null && _tempFoodData != null && !_isSaving) {
       setState(() {
-        _tempFoodData = null;
+        _isSaving = true;
       });
 
-      // Bagian SnackBar kamu sebenarnya sudah bagus karena sudah pakai cek mounted
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Makanan berhasil dicatat!")),
-      );
+      try {
+        // Menjalankan proses simpan ke Firestore
+        await DatabaseService().saveFoodLog(user.uid, _tempFoodData!);
+
+        // Pastikan widget masih ada di layar (mounted check)
+        if (!mounted) return;
+
+        setState(() {
+          _tempFoodData = null;
+          _isSaving = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Makanan berhasil dicatat!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        // Jika terjadi error (misal koneksi terputus), buka kembali kunci saving
+        if (!mounted) return;
+
+        setState(() {
+          _isSaving = false;
+        });
+
+        debugPrint("MacroFit Error - Save Food: $e");
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Gagal mencatat makanan. Periksa koneksi internet."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -110,128 +143,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildWelcomeHeader(String name, ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Statistik Hari Ini,",
-          style: TextStyle(
-            color: colorScheme.onSurface.withOpacity(0.6),
-            fontSize: 14,
-          ),
-        ),
-        Text(
-          name,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNutritionalCard(
-    Map<String, dynamic> userData,
-    ColorScheme colorScheme,
-  ) {
-    // Helper fungsi untuk warna tetap di dalam atau bisa dipindah ke luar widget
-    Color _getSugarColor(double current, double target) {
-      if (current > target) {
-        return Colors.red; // Bahaya
-      } else if (current > target * 0.8) {
-        return Colors.orange; // Peringatan
-      }
-      return Colors.purpleAccent; // Aman
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    String today = DateTime.now().toString().split(' ')[0];
-
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user?.uid)
-          .collection('daily_logs')
-          .doc(today)
-          .snapshots(),
-      builder: (context, logSnapshot) {
-        // 1. Inisialisasi logData di dalam builder
-        Map<String, dynamic> logData =
-            logSnapshot.hasData && logSnapshot.data!.exists
-            ? logSnapshot.data!.data() as Map<String, dynamic>
-            : {
-                'consumed_protein': 0,
-                'consumed_carbs': 0,
-                'consumed_fats': 0,
-                'consumed_calories': 0,
-                'consumed_sugar': 0, // Pastikan ada default untuk sugar
-              };
-
-        // 2. Definisikan variabel gula DI SINI agar logData sudah terdefinisi
-        double currentSugar = (logData['consumed_sugar'] ?? 0).toDouble();
-        double targetSugar = (userData['target_sugar'] ?? 50.0).toDouble();
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: colorScheme.outline),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Makronutrisi (Gram)",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 20),
-              NutritionProgressBar(
-                label: "Protein",
-                current: (logData['consumed_protein'] ?? 0).toDouble(),
-                target: (userData['target_protein'] ?? 0).toDouble(),
-                color: Colors.redAccent,
-              ),
-              NutritionProgressBar(
-                label: "Karbohidrat",
-                current: (logData['consumed_carbs'] ?? 0).toDouble(),
-                target: (userData['target_carbs'] ?? 0).toDouble(),
-                color: Colors.blueAccent,
-              ),
-              NutritionProgressBar(
-                label: "Lemak",
-                current: (logData['consumed_fats'] ?? 0).toDouble(),
-                target: (userData['target_fats'] ?? 0).toDouble(),
-                color: Colors.orangeAccent,
-              ),
-              // Sekarang Gula akan berjalan tanpa error
-              NutritionProgressBar(
-                label: "Gula",
-                current: currentSugar,
-                target: targetSugar,
-                color: _getSugarColor(currentSugar, targetSugar),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -307,124 +218,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildWaterTracker(
-    String uid,
-    ColorScheme colorScheme,
-    Map<String, dynamic> userData,
-  ) {
-    String today = DateTime.now().toString().split(' ')[0];
-    // Ambil target dari database, jika tidak ada gunakan default dari berat badan (jika tersedia)
-    double targetWater = (userData['target_water'] ?? 2000).toDouble();
-
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('daily_logs')
-          .doc(today)
-          .snapshots(),
-      builder: (context, snapshot) {
-        double currentWater = 0;
-        if (snapshot.hasData && snapshot.data!.exists) {
-          currentWater =
-              (snapshot.data!.data() as Map<String, dynamic>)['water_ml']
-                  ?.toDouble() ??
-              0.0;
-        }
-
-        double progress = (currentWater / targetWater).clamp(0.0, 1.0);
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: colorScheme.outline),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.local_drink, color: Colors.blue, size: 30),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Hidrasi Hari Ini",
-                          style: TextStyle(
-                            color: colorScheme.onSurface.withOpacity(0.6),
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          "${currentWater.toInt()} / ${targetWater.toInt()} ml",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // --- BAGIAN TOMBOL MINUS & PLUS ---
-                  Row(
-                    children: [
-                      // Tombol Minus (-)
-                      IconButton(
-                        onPressed: () =>
-                            DatabaseService().removeWaterIntake(uid, 250),
-                        icon: Icon(
-                          Icons.remove_circle_outline,
-                          color: Colors.redAccent.withOpacity(0.7),
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 2), // Jarak kecil antar tombol
-                      // Tombol Plus (+)
-                      IconButton(
-                        onPressed: () =>
-                            DatabaseService().updateWaterIntake(uid, 250),
-                        icon: const Icon(
-                          Icons.add_circle,
-                          color: Colors.blue,
-                          size: 32,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 10,
-                  backgroundColor: Colors.blue.withOpacity(0.1),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  "${(progress * 100).toInt()}%",
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -462,16 +255,14 @@ class _HomePageState extends State<HomePage> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              _buildWelcomeHeader(
-                userData['first_name'] ?? "User",
-                colorScheme,
-              ),
+              WelcomeHeader(name: userData['first_name'] ?? "User"),
               const DailyInsightCarousel(), // Panggil secara modular
               const SizedBox(height: 20),
               const SizedBox(height: 25),
-              _buildNutritionalCard(userData, colorScheme),
+              NutritionalCard(userData: userData, uid: user.uid),
               const SizedBox(height: 25),
-              _buildWaterTracker(user.uid, colorScheme, userData),
+              // Cari bagian _buildWaterTracker dan ganti menjadi:
+              WaterTrackerCard(uid: user.uid, userData: userData),
               if (_tempFoodData != null)
                 Card(
                   margin: const EdgeInsets.symmetric(vertical: 20),
@@ -547,9 +338,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               const SizedBox(height: 25),
               _buildSectionTitle("Target Kalori", colorScheme),
-              _buildCalorieCard(
-                userData['daily_calorie_target'] ?? 0,
-                colorScheme,
+              CalorieTargetCard(
+                targetCal: userData['daily_calorie_target'] ?? 0,
               ),
               const SizedBox(height: 100),
             ],
