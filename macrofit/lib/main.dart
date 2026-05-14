@@ -3,27 +3,39 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:macrofit/navigation_menu.dart';
-import 'package:macrofit/pages/home_page.dart'; // Pastikan import HomePage
+import 'package:macrofit/pages/home_page.dart';
 import 'package:macrofit/pages/login_page.dart';
 import 'package:macrofit/pages/onboarding_page.dart';
 import 'package:macrofit/pages/register_page.dart';
 import 'firebase_options.dart';
 import 'Theme/Elements.dart';
 import 'package:flutter/services.dart';
+// 1. Import package dotenv
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() async {
+Future<void> main() async {
+  // 2. Wajib inisialisasi binding jika fungsi main bersifat async
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Inisialisasi Firebase
+  // 3. Muat konfigurasi dari file key.env sebelum menjalankan aplikasi
+  try {
+    await dotenv.load(fileName: "key.env");
+  } catch (e) {
+    debugPrint("MacroFit: Error loading key.env file: $e");
+    // Tetap lanjut meskipun file .env gagal dimuat,
+    // namun fitur AI mungkin tidak akan berjalan.
+  }
+
+  // 4. Inisialisasi Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    print("MacroFit: Firebase Initialization Error: $e");
+    debugPrint("MacroFit: Firebase Initialization Error: $e");
   }
 
-  // 2. Sembunyikan Navigasi Bar Sistem (Samsung/Android)
+  // 5. Sembunyikan Navigasi Bar Sistem (Samsung/Android)
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(const MacroFit());
@@ -41,7 +53,6 @@ class MacroFit extends StatelessWidget {
       darkTheme: MacroFitTheme.darkTheme,
       themeMode: ThemeMode.system,
 
-      // Menggunakan home sebagai pintu masuk utama yang cerdas
       home: const AuthWrapper(),
 
       routes: {
@@ -85,8 +96,6 @@ class AuthWrapper extends StatelessWidget {
                 var userData = dbSnapshot.data!.data() as Map<String, dynamic>;
 
                 if (userData.containsKey('diet_code')) {
-                  // MODIFIKASI DISINI:
-                  // User lama diarahkan ke NavigationMenu (yang berisi PageView)
                   return const NavigationMenu();
                 }
               }
