@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // Tambahkan untuk debugPrint
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -10,7 +11,14 @@ class AIService {
   
   LANGKAH ANALISIS:
   1. Identifikasi SEMUA objek makanan dan minuman.
-  2. Jika YA, berikan estimasi nutrisi lengkap dengan JSON:
+  2. Jika YA, berikan estimasi nutrisi dalam format JSON tunggal.
+
+  ATURAN KHUSUS VARIABEL:
+  - "water_ml": HANYA diisi jika objek adalah MINUMAN (seperti air mineral, kopi, teh, jus) atau sup cair. Jika objek adalah MAKANAN PADAT (seperti telur, nasi, roti, daging), wajib isi 0 meskipun makanan tersebut mengandung air secara biologis.
+  - "sugar": Estimasi kandungan gula dalam gram.
+  - "is_food": Set true jika objek adalah makanan/minuman, false jika benda mati lainnya.
+
+  FORMAT JSON:
   {
     "is_food": true,
     "food_name": "nama menu",
@@ -18,11 +26,12 @@ class AIService {
     "carbs": angka,
     "fats": angka,
     "calories": angka,
-    "sugar": angka,      // TAMBAHKAN INI (dalam gram)
-    "water_ml": angka    // Tetap ada untuk hidrasi
+    "sugar": angka,
+    "water_ml": angka
   }
   
-  Gunakan bahasa Indonesia. Kembalikan HANYA JSON mentah.
+  Gunakan bahasa Indonesia. Kembalikan HANYA JSON objek tunggal { }. 
+  DILARANG menggunakan format List [ ] atau menambahkan teks penjelasan di luar JSON.
 ''';
 
   final _apiKey = dotenv.env['GEMINI_API_KEY']!;
@@ -71,28 +80,37 @@ class AIService {
             .replaceAll('```', '')
             .trim();
 
-        Map<String, dynamic> data = jsonDecode(cleanText);
+        // DECODE JSON
+        final dynamic decoded = jsonDecode(cleanText);
+        Map<String, dynamic> data;
+
+        // SOLUSI ERROR: Cek apakah hasil adalah List atau Map
+        if (decoded is List) {
+          if (decoded.isEmpty) return {};
+          data = decoded.first as Map<String, dynamic>;
+        } else {
+          data = decoded as Map<String, dynamic>;
+        }
 
         if (data['is_food'] == false) {
           return {'is_food': false};
         }
 
-        // Mapping hasil ke struktur yang konsisten
         return {
           'is_food': true,
           'food_name': data['food_name'] ?? 'Menu Terdeteksi',
-          'protein': data['protein'] ?? 0,
-          'carbs': data['carbs'] ?? 0,
-          'fats': data['fats'] ?? 0,
-          'calories': data['calories'] ?? 0,
-          'sugar': data['sugar'] ?? 0, // Mapping baru
-          'water_ml': data['water_ml'] ?? 0,
+          'protein': (data['protein'] ?? 0).toDouble(),
+          'carbs': (data['carbs'] ?? 0).toDouble(),
+          'fats': (data['fats'] ?? 0).toDouble(),
+          'calories': (data['calories'] ?? 0).toDouble(),
+          'sugar': (data['sugar'] ?? 0).toDouble(),
+          'water_ml': (data['water_ml'] ?? 0).toDouble(),
         };
       }
     } on TimeoutException catch (_) {
       return {'error': 'Koneksi terlalu lambat, silakan coba lagi.'};
     } catch (e) {
-      print("AI Error: $e");
+      debugPrint("AI Error Detail: $e");
     }
     return {};
   }

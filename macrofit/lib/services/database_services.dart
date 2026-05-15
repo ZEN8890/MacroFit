@@ -24,19 +24,19 @@ class DatabaseService {
         'target_protein': nutrition.proteinGram,
         'target_carbs': nutrition.carbsGram,
         'target_fats': nutrition.fatsGram,
-        'target_sugar': nutrition.sugarGram, // TAMBAHKAN INI
-        'target_water': nutrition.waterMl, // TAMBAHKAN INI
+        'target_sugar': nutrition.sugarGram,
+        'target_water': nutrition.waterMl,
         'target_cal_min': nutrition.targetCalMin,
         'daily_calorie_target': nutrition.targetCalMax,
         'updated_at': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print("Error Update Profil: $e");
+      debugPrint("Error Update Profil: $e");
       rethrow;
     }
   }
 
-  // --- LOGIKA WATER TRACKER ---
+  // --- LOGIKA TAMBAH AIR ---
   Future<void> updateWaterIntake(String uid, int addMl) async {
     String today = DateTime.now().toString().split(' ')[0];
     DocumentReference dailyRef = _firestore
@@ -49,22 +49,15 @@ class DatabaseService {
       await dailyRef.set({
         'water_ml': FieldValue.increment(addMl),
         'date': today,
-        'consumed_protein': FieldValue.increment(0),
-        'consumed_carbs': FieldValue.increment(0),
-        'consumed_fats': FieldValue.increment(0),
-        'consumed_calories': FieldValue.increment(0),
-        'consumed_sugar': FieldValue.increment(0), // TAMBAHKAN INI
       }, SetOptions(merge: true));
     } catch (e) {
-      print("Error Water Intake: $e");
+      debugPrint("Error Water Intake: $e");
     }
   }
 
-  //remove water intake
+  // --- LOGIKA KURANGI AIR (YANG TADI HILANG) ---
   Future<void> removeWaterIntake(String uid, int amount) async {
     String today = DateTime.now().toString().split(' ')[0];
-
-    // Pastikan referensi koleksi sesuai dengan struktur Firestore Anda
     DocumentReference dailyRef = _firestore
         .collection("users")
         .doc(uid)
@@ -72,31 +65,19 @@ class DatabaseService {
         .doc(today);
 
     try {
-      // Menambahkan timeout untuk mencegah aplikasi hang jika koneksi buruk
       await _firestore
           .runTransaction((transaction) async {
             DocumentSnapshot snap = await transaction.get(dailyRef);
-
             if (snap.exists) {
               Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
-
-              // Menggunakan .toDouble() untuk memastikan konsistensi tipe data num
               double current = (data['water_ml'] ?? 0).toDouble();
-
-              // Menggunakan .clamp untuk logika yang lebih bersih: minimal 0, maksimal tidak terbatas
               double newValue = (current - amount).clamp(0.0, double.infinity);
-
               transaction.update(dailyRef, {'water_ml': newValue});
             }
           })
-          .timeout(
-            const Duration(seconds: 10),
-          ); // Batasi waktu tunggu transaksi
+          .timeout(const Duration(seconds: 10));
     } catch (e) {
-      // Menggunakan debugPrint lebih disarankan untuk logging aplikasi Flutter
       debugPrint("MacroFit Error - Remove Water: $e");
-
-      // Melemparkan error kembali agar UI bisa menangkap dan menampilkan SnackBar
       throw Exception("Gagal mengurangi data air: $e");
     }
   }
@@ -111,15 +92,17 @@ class DatabaseService {
 
     try {
       String today = DateTime.now().toString().split(' ')[0];
-      DocumentReference logRef = _firestore
+      DocumentReference dailyRef = _firestore
           .collection('users')
           .doc(uid)
           .collection('daily_logs')
           .doc(today);
+      CollectionReference historyRef = _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('food_logs');
 
       await _firestore.runTransaction((transaction) async {
-        DocumentSnapshot snapshot = await transaction.get(logRef);
-
         num protein = safeNum(foodData['protein']);
         num carbs = safeNum(foodData['carbs']);
         num fats = safeNum(foodData['fats']);
@@ -127,40 +110,46 @@ class DatabaseService {
         num sugar = safeNum(foodData['sugar']);
         num water = safeNum(foodData['water_ml']);
 
-        Map<String, dynamic> historyItem = {
+        transaction.set(historyRef.doc(), {
           'food_name': foodData['food_name'],
+          'protein': protein,
+          'carbs': carbs,
+          'fats': fats,
           'calories': calories,
           'sugar': sugar,
-          'water_ml': water, // Tambahkan detail air di history
-          'time': Timestamp.now(),
-        };
+          'water_ml': water,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
 
-        if (!snapshot.exists) {
-          transaction.set(logRef, {
-            'consumed_protein': protein,
-            'consumed_carbs': carbs,
-            'consumed_fats': fats,
-            'consumed_calories': calories,
-            'consumed_sugar': sugar,
-            'water_ml': water,
-            'date': today,
-            'food_history': [historyItem],
-          });
-        } else {
-          transaction.update(logRef, {
-            'consumed_protein': FieldValue.increment(protein),
-            'consumed_carbs': FieldValue.increment(carbs),
-            'consumed_fats': FieldValue.increment(fats),
-            'consumed_calories': FieldValue.increment(calories),
-            'consumed_sugar': FieldValue.increment(sugar),
-            'water_ml': FieldValue.increment(water),
-            'food_history': FieldValue.arrayUnion([historyItem]),
-          });
-        }
+        transaction.set(dailyRef, {
+          'consumed_protein': FieldValue.increment(protein),
+          'consumed_carbs': FieldValue.increment(carbs),
+          'consumed_fats': FieldValue.increment(fats),
+          'consumed_calories': FieldValue.increment(calories),
+          'consumed_sugar': FieldValue.increment(sugar),
+          'water_ml': FieldValue.increment(water),
+          'date': today,
+        }, SetOptions(merge: true));
       });
     } catch (e) {
-      print("CRITICAL DATABASE ERROR: $e");
+      debugPrint("CRITICAL DATABASE ERROR: $e");
       rethrow;
     }
+  }
+
+  // --- FUNGSI AMBIL RIWAYAT ---
+  Stream<QuerySnapshot> getTodayFoodLogs(String uid) {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('food_logs')
+        .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
+        .where('timestamp', isLessThanOrEqualTo: endOfDay)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
   }
 }
