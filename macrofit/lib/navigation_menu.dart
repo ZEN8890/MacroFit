@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'pages/history_page.dart';
+import 'pages/restaurant_page.dart'; // Sudah terimport dengan benar
 
 class NavigationMenu extends StatefulWidget {
   const NavigationMenu({super.key});
@@ -44,6 +45,7 @@ class _NavigationMenuState extends State<NavigationMenu> {
         children: const [
           HomePage(), // Index 0
           HistoryPage(), // Index 1
+          RestaurantPage(), // Index 2 (Tambahan Baru)
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -59,6 +61,12 @@ class _NavigationMenuState extends State<NavigationMenu> {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Riwayat',
+          ),
+          // --- ITEM BARU: MENU RESTORAN SEHAT ---
+          NavigationDestination(
+            icon: Icon(Icons.restaurant_outlined),
+            selectedIcon: Icon(Icons.restaurant),
+            label: 'Restoran',
           ),
         ],
       ),

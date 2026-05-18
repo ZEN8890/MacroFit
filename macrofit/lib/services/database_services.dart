@@ -152,4 +152,56 @@ class DatabaseService {
         .orderBy('timestamp', descending: true)
         .snapshots();
   }
+
+  // Fungsi baru untuk mengambil data berdasarkan filter di halaman History
+  Stream<QuerySnapshot> getFilteredFoodLogs(
+    String uid,
+    String filterType,
+    DateTime? customDate,
+  ) {
+    final now = DateTime.now();
+    DateTime startDate;
+
+    if (filterType == 'Harian') {
+      // Khusus Harian: Dari jam 00:00 hari ini sampai sekarang
+      startDate = DateTime(now.year, now.month, now.day);
+    } else if (filterType == 'Mingguan') {
+      // Mingguan: 7 hari terakhir ke belakang
+      startDate = now.subtract(const Duration(days: 7));
+    } else if (filterType == 'Tahunan') {
+      // Tahunan: Dari 1 Januari tahun ini
+      startDate = DateTime(now.year, 1, 1);
+    } else if (filterType == 'Custom' && customDate != null) {
+      // Custom: Dari jam 00:00 di tanggal yang dipilih user sampai 23:59 di tanggal tersebut
+      startDate = DateTime(customDate.year, customDate.month, customDate.day);
+      DateTime endDate = DateTime(
+        customDate.year,
+        customDate.month,
+        customDate.day,
+        23,
+        59,
+        59,
+      );
+
+      return _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('food_logs')
+          .where('timestamp', isGreaterThanOrEqualTo: startDate)
+          .where('timestamp', isLessThanOrEqualTo: endDate)
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    } else {
+      // Default jika ada anomali, ambil hari ini
+      startDate = DateTime(now.year, now.month, now.day);
+    }
+
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('food_logs')
+        .where('timestamp', isGreaterThanOrEqualTo: startDate)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
 }

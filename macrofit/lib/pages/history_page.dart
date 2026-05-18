@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart'; // Tambahkan package intl di pubspec.yaml jika belum ada
+import 'package:intl/intl.dart';
 import '../services/database_services.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -16,12 +16,11 @@ class _HistoryPageState extends State<HistoryPage> {
   String selectedFilter = 'Harian';
   DateTime? customDate;
 
-  // Fungsi untuk memanggil DatePicker
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2023),
+      firstDate: DateTime(2025),
       lastDate: DateTime.now(),
     );
     if (picked != null) {
@@ -46,24 +45,80 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: user == null
           ? const Center(child: Text("Silakan login"))
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _buildFilterSegment(colorScheme),
-                const SizedBox(height: 25),
-                _buildStatisticSection(colorScheme),
-                const SizedBox(height: 30),
-                Text(
-                  "Daftar Konsumsi",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
+          : StreamBuilder<DocumentSnapshot>(
+              // STREAM 1: Ambil data user profil untuk mendapatkan target kalori dinamis (3324 kkal)
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                  return const Center(
+                    child: Text("Profil user tidak ditemukan"),
+                  );
+                }
+
+                var userData =
+                    userSnapshot.data!.data() as Map<String, dynamic>;
+
+                return StreamBuilder<QuerySnapshot>(
+                  // STREAM 2: Ambil data log makanan berdasarkan filter
+                  stream: DatabaseService().getFilteredFoodLogs(
+                    user.uid,
+                    selectedFilter,
+                    customDate,
                   ),
-                ),
-                const SizedBox(height: 15),
-                _buildFoodList(user.uid, colorScheme),
-              ],
+                  builder: (context, foodSnapshot) {
+                    if (foodSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    List<QueryDocumentSnapshot> docs =
+                        foodSnapshot.data?.docs ?? [];
+
+                    return ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        // --- 1. FILTER SECTION ---
+                        _buildFilterSegment(colorScheme),
+                        const SizedBox(height: 25),
+
+                        // --- 2. STATISTIC SECTION ---
+                        _buildDynamicChart(docs, userData, colorScheme),
+                        const SizedBox(height: 30),
+
+                        // --- 3. LIST HISTORY SECTION ---
+                        Text(
+                          "Daftar Konsumsi (${docs.length})",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
+                        if (docs.isEmpty)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 40),
+                              child: Text(
+                                "Tidak ada riwayat makanan pada periode ini.",
+                              ),
+                            ),
+                          )
+                        else
+                          _buildFoodList(docs, colorScheme),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
     );
   }
@@ -73,11 +128,14 @@ class _HistoryPageState extends State<HistoryPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.3),
+        color: colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.3,
+        ), // Perbaikan Deprecated
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
+          // Perbaikan Spread Operator Linter (Hapus .toList())
           ...filters.map((filter) {
             bool isSelected = selectedFilter == filter;
             return Expanded(
@@ -109,8 +167,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
             );
-          }).toList(),
-          // Custom Date Filter di paling kanan
+          }),
           IconButton(
             icon: Icon(
               Icons.calendar_month,
@@ -125,13 +182,78 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildStatisticSection(ColorScheme colorScheme) {
+  Widget _buildDynamicChart(
+    List<QueryDocumentSnapshot> docs,
+    Map<String, dynamic> userData,
+    ColorScheme colorScheme,
+  ) {
     String labelX = selectedFilter == 'Custom' && customDate != null
         ? DateFormat('dd MMM').format(customDate!)
         : selectedFilter;
 
+    double targetCalorieBaseline = (userData['daily_calorie_target'] ?? 2000)
+        .toDouble();
+
+    List<FlSpot> spots = [];
+    List<String> xLabels = [];
+
+    List<QueryDocumentSnapshot> sortedDocs = List.from(docs.reversed);
+
+    if (selectedFilter == 'Harian' ||
+        (selectedFilter == 'Custom' && sortedDocs.isNotEmpty)) {
+      double runningTotal = 0;
+      for (int i = 0; i < sortedDocs.length; i++) {
+        var data = sortedDocs[i].data() as Map<String, dynamic>;
+        double calories = (data['calories'] ?? 0).toDouble();
+
+        runningTotal += calories;
+        spots.add(FlSpot(i.toDouble(), runningTotal));
+
+        Timestamp? ts = data['timestamp'] as Timestamp?;
+        String timeLabel = ts != null
+            ? DateFormat('HH:mm').format(ts.toDate())
+            : '';
+        xLabels.add(timeLabel);
+      }
+    } else {
+      Map<String, double> dailyCaloriesGroup = {};
+      for (var doc in sortedDocs) {
+        var data = doc.data() as Map<String, dynamic>;
+        Timestamp? timestamp = data['timestamp'] as Timestamp?;
+        if (timestamp != null) {
+          String dateKey = DateFormat('yyyy-MM-dd').format(timestamp.toDate());
+          double calories = (data['calories'] ?? 0).toDouble();
+          dailyCaloriesGroup[dateKey] =
+              (dailyCaloriesGroup[dateKey] ?? 0) + calories;
+        }
+      }
+
+      List<String> datesLabel = dailyCaloriesGroup.keys.toList();
+      for (int i = 0; i < datesLabel.length; i++) {
+        double totalCaloriesToday = dailyCaloriesGroup[datesLabel[i]]!;
+        spots.add(FlSpot(i.toDouble(), totalCaloriesToday));
+
+        DateTime parsedDate = DateTime.parse(datesLabel[i]);
+        xLabels.add(DateFormat('dd MMM').format(parsedDate));
+      }
+    }
+
+    if (spots.isEmpty) {
+      spots = [const FlSpot(0, 0)];
+      xLabels = [''];
+    }
+
+    double highestSpotValue = spots
+        .map((e) => e.y)
+        .reduce((a, b) => a > b ? a : b);
+    double maxYValue =
+        (highestSpotValue > targetCalorieBaseline
+            ? highestSpotValue
+            : targetCalorieBaseline) +
+        500;
+
     return Container(
-      height: 280, // Tambah tinggi sedikit untuk label sumbu
+      height: 290,
       padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -155,11 +277,38 @@ class _HistoryPageState extends State<HistoryPage> {
           Expanded(
             child: LineChart(
               LineChartData(
+                minY: 0,
+                maxY: maxYValue,
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) =>
-                      FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: colorScheme.outlineVariant,
+                    strokeWidth: 0.5,
+                  ),
+                ),
+                extraLinesData: ExtraLinesData(
+                  horizontalLines: [
+                    HorizontalLine(
+                      y: targetCalorieBaseline,
+                      color: Colors.red.withValues(
+                        alpha: 0.8,
+                      ), // Perbaikan Deprecated
+                      strokeWidth: 2,
+                      dashArray: [5, 5],
+                      label: HorizontalLineLabel(
+                        show: true,
+                        alignment: Alignment.topRight,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                        labelResolver: (line) =>
+                            "Target: ${line.y.toInt()} kkal",
+                      ),
+                    ),
+                  ],
                 ),
                 titlesData: FlTitlesData(
                   rightTitles: const AxisTitles(
@@ -168,40 +317,38 @@ class _HistoryPageState extends State<HistoryPage> {
                   topTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
-                  // Sumbu Y (Kalori)
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(
-                        "${value.toInt()}",
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
-                        ),
-                      ),
+                      reservedSize: 45,
+                      getTitlesWidget: (value, meta) {
+                        if (value % 1000 == 0 && value != 0) {
+                          return Text(
+                            "${value.toInt()}",
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.grey,
+                            ),
+                          );
+                        }
+                        return const Text('');
+                      },
                     ),
                   ),
-                  // Sumbu X (Waktu)
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
-                        const days = [
-                          'Sen',
-                          'Sel',
-                          'Rab',
-                          'Kam',
-                          'Jum',
-                          'Sab',
-                          'Min',
-                        ];
-                        if (value >= 0 && value < days.length) {
-                          return Text(
-                            days[value.toInt()],
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
+                        int index = value.toInt();
+                        if (index >= 0 && index < xLabels.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text(
+                              xLabels[index],
+                              style: const TextStyle(
+                                fontSize: 8,
+                                color: Colors.grey,
+                              ),
                             ),
                           );
                         }
@@ -213,22 +360,16 @@ class _HistoryPageState extends State<HistoryPage> {
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 1200),
-                      FlSpot(1, 1900),
-                      FlSpot(2, 1500),
-                      FlSpot(3, 2200),
-                      FlSpot(4, 1800),
-                      FlSpot(5, 2500),
-                      FlSpot(6, 2100),
-                    ],
-                    isCurved: true,
+                    spots: spots,
+                    isCurved: spots.length > 1,
                     color: colorScheme.primary,
                     barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: colorScheme.primary.withOpacity(0.1),
-                    ),
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                    ), // Perbaikan Deprecated
                   ),
                 ],
               ),
@@ -239,37 +380,54 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildFoodList(String uid, ColorScheme colorScheme) {
-    // Logika stream bisa dikembangkan untuk filter custom nanti setelah staycation
-    return StreamBuilder<QuerySnapshot>(
-      stream: DatabaseService().getTodayFoodLogs(uid),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
-          return const Center(child: Text("Belum ada riwayat"));
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            var meal =
-                snapshot.data!.docs[index].data() as Map<String, dynamic>;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-                side: BorderSide(color: colorScheme.outlineVariant),
+  Widget _buildFoodList(
+    List<QueryDocumentSnapshot> docs,
+    ColorScheme colorScheme,
+  ) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: docs.length,
+      itemBuilder: (context, index) {
+        var meal = docs[index].data() as Map<String, dynamic>;
+        DateTime date = (meal['timestamp'] as Timestamp? ?? Timestamp.now())
+            .toDate();
+        String formattedDate = DateFormat('dd MMM, HH:mm').format(date);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(
+                  alpha: 0.4,
+                ), // Perbaikan Deprecated
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: ListTile(
-                leading: const Icon(Icons.fastfood, color: Colors.orange),
-                title: Text(
-                  meal['food_name'] ?? "Food",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text("${meal['calories']} kcal"),
-                trailing: const Icon(Icons.chevron_right),
+              child: Icon(Icons.fastfood, color: colorScheme.primary, size: 20),
+            ),
+            title: Text(
+              meal['food_name'] ?? "Food",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              "$formattedDate\nP: ${meal['protein']}g | K: ${meal['carbs']}g | L: ${meal['fats']}g",
+            ),
+            isThreeLine: true,
+            trailing: Text(
+              "${meal['calories']} kcal",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.primary,
+                fontSize: 15,
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );

@@ -163,14 +163,38 @@ class _HomePageState extends State<HomePage>
                   onConfirm: _confirmSaveFood,
                   onCancel: () => setState(() => _tempFoodData = null),
                 ),
-              //water tracker card, bisa dibuat lebih menarik dengan progress bar atau animasi
+              // Water tracker card
               WaterTrackerCard(uid: user.uid, userData: userData),
               const SizedBox(height: 25),
               _buildSectionTitle("Target Kalori", colorScheme),
-              CalorieTargetCard(
-                targetCal: userData['daily_calorie_target'] ?? 0,
-              ),
 
+              // --- REUSABLE STREAM: Memakai getFilteredFoodLogs untuk mengambil data Harian ---
+              StreamBuilder<QuerySnapshot>(
+                stream: DatabaseService().getFilteredFoodLogs(
+                  user.uid,
+                  'Harian',
+                  null,
+                ),
+                builder: (context, logSnapshot) {
+                  // Menggunakan num agar fleksibel menerima tipe data int/double dari Firestore
+                  num totalConsumed = 0;
+
+                  if (logSnapshot.hasData) {
+                    // Iterasi seluruh makanan hari ini untuk menjumlahkan kalorinya
+                    for (var doc in logSnapshot.data!.docs) {
+                      var foodItem = doc.data() as Map<String, dynamic>;
+                      totalConsumed += (foodItem['calories'] ?? 0);
+                    }
+                  }
+
+                  return CalorieTargetCard(
+                    targetCal: (userData['daily_calorie_target'] ?? 2000)
+                        .toInt(),
+                    // Konversi num ke int dengan .toInt() agar lolos type safety compiler Dart
+                    consumedCal: totalConsumed.toInt(),
+                  );
+                },
+              ),
               const SizedBox(height: 100),
             ],
           );
