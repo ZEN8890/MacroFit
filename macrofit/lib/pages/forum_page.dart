@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,14 +22,13 @@ class _ForumPageState extends State<ForumPage> {
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
-  bool _isPosting = false; // 🔥 Variabel penanda status loading postingan
+  bool _isPosting = false;
 
   Future<void> _createPost() async {
     if (_postController.text.trim().isEmpty && _selectedImage == null) return;
     final user = _auth.currentUser;
     if (user == null) return;
 
-    // 🔥 Mulai Loading Animasi
     setState(() => _isPosting = true);
 
     try {
@@ -65,11 +65,12 @@ class _ForumPageState extends State<ForumPage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal mengirim postingan: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mengirim postingan: $e')));
+      }
     } finally {
-      // 🔥 Matikan Loading Animasi (Baik sukses maupun gagal)
       if (mounted) {
         setState(() => _isPosting = false);
       }
@@ -101,18 +102,33 @@ class _ForumPageState extends State<ForumPage> {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Hapus Thread'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Hapus Thread',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             content: const Text(
               'Apakah Anda yakin ingin menghapus thread ini?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Batal'),
+                child: const Text(
+                  'Batal',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -130,14 +146,17 @@ class _ForumPageState extends State<ForumPage> {
         }
       }
       await _firestore.collection('posts').doc(postId).delete();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Thread berhasil dihapus.')),
         );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menghapus thread: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menghapus thread: $e')));
+      }
     }
   }
 
@@ -161,82 +180,85 @@ class _ForumPageState extends State<ForumPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        // 🔥 PERBAIKAN 1: Memaksa Scaffold mengatur ulang layout saat keyboard muncul
         resizeToAvoidBottomInset: true,
-        appBar: AppBar(
-          title: const Text(
-            "MacroFit Community",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          elevation: 0,
-          // 🔥 OTOMATIS: Mengikuti warna backgroundLight (Putih) atau backgroundDark (Abu Gelap) dari tema Anda
-          backgroundColor: theme.appBarTheme.backgroundColor,
-          foregroundColor: theme.appBarTheme.foregroundColor,
-          bottom: TabBar(
-            // 🔥 MENYESUAIKAN TEMA: Teks aktif berwarna Biru Utama (Light) atau Putih Bersih (Dark)
-            labelColor: isDarkMode ? Colors.white : theme.primaryColor,
-            // Teks tidak aktif berwarna abu-abu proporsional
-            unselectedLabelColor: isDarkMode ? Colors.white38 : Colors.black38,
-            // 🔥 INDIKATOR: Menggunakan warna Biru Utama aplikasi Anda (primaryBlue)
-            indicatorColor: theme.primaryColor,
-            indicatorSize: TabBarIndicatorSize.tab,
-            tabs: const [
-              Tab(text: 'Semua Forum', icon: Icon(Icons.forum_outlined)),
-              Tab(
-                text: 'Thread Saya',
-                icon: Icon(Icons.assignment_ind_outlined),
-              ),
-            ],
-          ),
-        ),
-        // Menambahkan warna background scaffold agar sinkron dengan tema modular
         backgroundColor: theme.scaffoldBackgroundColor,
-        // 🔥 PERBAIKAN MUTLAK: Mengubah struktur utama body agar memiliki toleransi scroll mikro
-        body: ListView(
-          shrinkWrap: true,
-          physics:
-              const ClampingScrollPhysics(), // Menjaga agar tidak ada efek membal yang memotong tab
-          children: [
-            PostInputSection(
-              controller: _postController,
-              selectedImage: _selectedImage,
-              onPickImage: _pickImage,
-              isPosting: _isPosting,
-              onCreatePost: _createPost,
-              onClearImage: () => setState(() => _selectedImage = null),
+        body: SafeArea(
+          child: NestedScrollView(
+            headerSliverBuilder:
+                (BuildContext context, bool innerBoxIsScrolled) {
+                  return <Widget>[
+                    SliverAppBar(
+                      title: const Text(
+                        "MacroFit Community",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      pinned: true,
+                      floating: true,
+                      forceElevated: innerBoxIsScrolled,
+                      backgroundColor: theme.appBarTheme.backgroundColor,
+                      foregroundColor: theme.appBarTheme.foregroundColor,
+                      elevation: 0,
+                      bottom: TabBar(
+                        labelColor: isDarkMode
+                            ? Colors.white
+                            : theme.primaryColor,
+                        unselectedLabelColor: isDarkMode
+                            ? Colors.white38
+                            : Colors.black38,
+                        indicatorColor: theme.primaryColor,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        tabs: const [
+                          Tab(
+                            text: 'Semua Forum',
+                            icon: Icon(Icons.forum_outlined, size: 20),
+                          ),
+                          Tab(
+                            text: 'Thread Saya',
+                            icon: Icon(Icons.assignment_ind_outlined, size: 20),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PostInputSection(
+                            controller: _postController,
+                            selectedImage: _selectedImage,
+                            onPickImage: _pickImage,
+                            isPosting: _isPosting,
+                            onCreatePost: _createPost,
+                            onClearImage: () =>
+                                setState(() => _selectedImage = null),
+                          ),
+                          const Divider(thickness: 1, height: 1),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+            // 🔥 PERBAIKAN MUTLAK: Pembungkus Padding bottom 50.0 dibuang total
+            // Sekarang TabBarView terpasang bersih agar scrolling lancar seamless tanpa terpotong
+            body: TabBarView(
+              children: [
+                PostListStream(
+                  filterUid: null,
+                  firestore: _firestore,
+                  auth: _auth,
+                  onDeletePost: _deletePost,
+                  onLikeToggle: _toggleLike,
+                ),
+                PostListStream(
+                  filterUid: currentUser?.uid,
+                  firestore: _firestore,
+                  auth: _auth,
+                  onDeletePost: _deletePost,
+                  onLikeToggle: _toggleLike,
+                ),
+              ],
             ),
-
-            const Divider(thickness: 1, height: 1),
-
-            // 🔥 Gunakan SizedBox pembatas agar TabBarView mendapatkan tinggi maksimum yang aman
-            SizedBox(
-              height:
-                  MediaQuery.of(context).size.height -
-                  kToolbarHeight -
-                  kTextTabBarHeight -
-                  MediaQuery.of(context).padding.top -
-                  MediaQuery.of(context).viewInsets.bottom -
-                  120, // Menghitung ruang sisa keyboard secara dinamis
-              child: TabBarView(
-                children: [
-                  PostListStream(
-                    filterUid: null,
-                    firestore: _firestore,
-                    auth: _auth,
-                    onDeletePost: _deletePost,
-                    onLikeToggle: _toggleLike,
-                  ),
-                  PostListStream(
-                    filterUid: currentUser?.uid,
-                    firestore: _firestore,
-                    auth: _auth,
-                    onDeletePost: _deletePost,
-                    onLikeToggle: _toggleLike,
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

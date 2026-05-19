@@ -11,6 +11,8 @@ import 'firebase_options.dart';
 import 'Theme/Elements.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,7 @@ Future<void> main() async {
     debugPrint("MacroFit: Error loading key.env file: $e");
   }
 
-  // 4. Inisialisasi Firebase (SUDAH DIPERBAIKI)
+  // Inisialisasi Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -34,7 +36,13 @@ Future<void> main() async {
   // Sembunyikan Navigasi Bar Sistem
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  runApp(const MacroFit());
+  // Bungkus aplikasi utama dengan ChangeNotifierProvider
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ThemeProvider(),
+      child: const MacroFit(),
+    ),
+  );
 }
 
 class MacroFit extends StatelessWidget {
@@ -42,12 +50,19 @@ class MacroFit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ambil State ThemeProvider secara real-time
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'MacroFit',
+
+      // Menggunakan skema warna elegan dari berkas Theme/Elements.dart
       theme: MacroFitTheme.lightTheme,
       darkTheme: MacroFitTheme.darkTheme,
-      themeMode: ThemeMode.system,
+
+      // 🔥 PERBAIKAN: Menerjemahkan boolean isDarkMode menjadi objek ThemeMode bawaan Flutter
+      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
       home: const AuthWrapper(),
 

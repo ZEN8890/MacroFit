@@ -8,7 +8,8 @@ import '../widgets/welcome_header.dart';
 import '../widgets/calorie_target_card.dart';
 import '../widgets/nutritional_card.dart';
 import '../widgets/water_tracker_card.dart';
-import '../widgets/food_verification_card.dart'; // Import widget baru
+import '../widgets/food_verification_card.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -119,43 +120,86 @@ class _HomePageState extends State<HomePage>
     final colorScheme = Theme.of(context).colorScheme;
     final user = FirebaseAuth.instance.currentUser;
 
-    if (user == null)
+    if (user == null) {
       return const Scaffold(body: Center(child: Text("User not logged in")));
+    }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "MacroFit",
-          style: TextStyle(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.bold,
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Scaffold(
+            body: Center(child: Text("Data tidak ditemukan")),
+          );
+        }
+
+        // Data profil utama pengguna berhasil ditarik secara real-time
+        var userData = snapshot.data!.data() as Map<String, dynamic>;
+        String profilePic = userData['profile_picture'] ?? '';
+
+        return Scaffold(
+          // 🔥 PERBAIKAN UTAMA: Memasukkan AppBar ke dalam builder agar kebal desinkronisasi data foto
+          appBar: AppBar(
+            title: Text(
+              "MacroFit",
+              style: TextStyle(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            // 🔥 MENYISIPKAN ICON PROFILE REAL-TIME DI UJUNG KANAN APPBAR
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: InkWell(
+                  onTap: () {
+                    // Navigasi push transisi menuju halaman pengaturan profil
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProfilePage(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: CircleAvatar(
+                    radius:
+                        18, // Dimensi pas dan simetris di dalam deretan AppBar
+                    backgroundColor: colorScheme.primary.withOpacity(0.1),
+                    // Deteksi URL Gambar Profil dari Firebase Storage
+                    backgroundImage: profilePic.isNotEmpty
+                        ? NetworkImage(profilePic)
+                        : null,
+                    child: profilePic.isEmpty
+                        ? Icon(
+                            Icons.account_circle,
+                            color: colorScheme.primary,
+                            size: 24,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text("Data tidak ditemukan"));
-          }
-
-          var userData = snapshot.data!.data() as Map<String, dynamic>;
-
-          return ListView(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: ListView(
             padding: const EdgeInsets.all(20),
             children: [
               WelcomeHeader(name: userData['first_name'] ?? "User"),
               const DailyInsightCarousel(),
               const SizedBox(height: 25),
               NutritionalCard(userData: userData, uid: user.uid),
-              const SizedBox(height: 25),
+              const SizedBox(height: 15),
               // Tampilkan kartu verifikasi jika ada data sementara
               if (_tempFoodData != null)
                 FoodVerificationCard(
@@ -197,16 +241,16 @@ class _HomePageState extends State<HomePage>
               ),
               const SizedBox(height: 100),
             ],
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddFoodSheet(context),
-        label: const Text("Catat Makan"),
-        icon: const Icon(Icons.auto_awesome),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: Colors.white,
-      ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showAddFoodSheet(context),
+            label: const Text("Catat Makan"),
+            icon: const Icon(Icons.auto_awesome),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+          ),
+        );
+      },
     );
   }
 }

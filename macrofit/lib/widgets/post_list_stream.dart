@@ -29,7 +29,6 @@ class PostListStream extends StatelessWidget {
     }
 
     return StreamBuilder<QuerySnapshot>(
-      // 🔥 PERBAIKAN: Tambahkan includeMetadataChanges agar data pending timestamp langsung dirender
       stream: query.snapshots(includeMetadataChanges: true),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -49,6 +48,14 @@ class PostListStream extends StatelessWidget {
         final posts = snapshot.data!.docs;
 
         return ListView.builder(
+          // 🔥 KUNCI SEAMLESS UI: Berikan padding internal alami di dalam ListView
+          // Jarak bottom disetel 90.0 agar item terakhir melompati tinggi Navigation Bar dengan anggun
+          padding: const EdgeInsets.only(
+            top: 8.0,
+            left: 12.0,
+            right: 12.0,
+            bottom: 90.0,
+          ),
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = posts[index];

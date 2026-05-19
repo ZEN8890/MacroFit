@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'pages/history_page.dart';
 import 'pages/restaurant_page.dart';
-import 'pages/forum_page.dart'; // 1. IMPORT HALAMAN FORUM BARU
+import 'pages/recipe_page.dart'; // 🔥 1. IMPORT HALAMAN RESEP BARU
+import 'pages/forum_page.dart';
 
 class NavigationMenu extends StatefulWidget {
   const NavigationMenu({super.key});
@@ -47,7 +48,8 @@ class _NavigationMenuState extends State<NavigationMenu> {
           HomePage(), // Index 0
           HistoryPage(), // Index 1
           RestaurantPage(), // Index 2
-          ForumPage(), // 2. TAMBAHKAN FORUM PAGE DI INDEX 3
+          RecipePage(), // 🔥 2. SISIPKAN RESEP PAGE DI INDEX 3 (Sebelah Restoran)
+          ForumPage(), // Index 4 (Geser otomatis menjadi Index 4)
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -69,7 +71,14 @@ class _NavigationMenuState extends State<NavigationMenu> {
             selectedIcon: Icon(Icons.restaurant),
             label: 'Restoran',
           ),
-          // --- 3. TAMBAHKAN ITEM NAVIGASI FORUM (ALA THREADS) ---
+
+          // 🔥 3. TAMBAHKAN ITEM NAVIGASI RESEP BARU
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Resep',
+          ),
+
           NavigationDestination(
             icon: Icon(Icons.forum_outlined),
             selectedIcon: Icon(Icons.forum),
