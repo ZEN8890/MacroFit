@@ -67,8 +67,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '745486986028',
     projectId: 'macrofit-d0635',
     storageBucket: 'macrofit-d0635.firebasestorage.app',
-    iosClientId:
-        '745486986028-3652n9k6k944798j4vov39uk1mlaiqcg.apps.googleusercontent.com',
+    iosClientId: '745486986028-3652n9k6k944798j4vov39uk1mlaiqcg.apps.googleusercontent.com',
     iosBundleId: 'com.example.macrofit',
   );
 
@@ -81,4 +80,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'macrofit-d0635.firebasestorage.app',
     measurementId: 'G-M5WQYQX5S1',
   );
+
 }

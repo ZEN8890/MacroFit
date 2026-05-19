@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'pages/history_page.dart';
-import 'pages/restaurant_page.dart'; // Sudah terimport dengan benar
+import 'pages/restaurant_page.dart';
+import 'pages/forum_page.dart'; // 1. IMPORT HALAMAN FORUM BARU
 
 class NavigationMenu extends StatefulWidget {
   const NavigationMenu({super.key});
@@ -45,7 +46,8 @@ class _NavigationMenuState extends State<NavigationMenu> {
         children: const [
           HomePage(), // Index 0
           HistoryPage(), // Index 1
-          RestaurantPage(), // Index 2 (Tambahan Baru)
+          RestaurantPage(), // Index 2
+          ForumPage(), // 2. TAMBAHKAN FORUM PAGE DI INDEX 3
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -62,11 +64,16 @@ class _NavigationMenuState extends State<NavigationMenu> {
             selectedIcon: Icon(Icons.history),
             label: 'Riwayat',
           ),
-          // --- ITEM BARU: MENU RESTORAN SEHAT ---
           NavigationDestination(
             icon: Icon(Icons.restaurant_outlined),
             selectedIcon: Icon(Icons.restaurant),
             label: 'Restoran',
+          ),
+          // --- 3. TAMBAHKAN ITEM NAVIGASI FORUM (ALA THREADS) ---
+          NavigationDestination(
+            icon: Icon(Icons.forum_outlined),
+            selectedIcon: Icon(Icons.forum),
+            label: 'Forum',
           ),
         ],
       ),

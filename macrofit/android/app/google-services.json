@@ -29,6 +29,13 @@
             {
               "client_id": "745486986028-s45rmjhjqo1f15u1433hn0mhj0vnd4nr.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "745486986028-3652n9k6k944798j4vov39uk1mlaiqcg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.macrofit"
+              }
             }
           ]
         }

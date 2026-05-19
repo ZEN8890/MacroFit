@@ -130,11 +130,17 @@ class _RestaurantPageState extends State<RestaurantPage> {
         return (a['distance'] as double).compareTo(b['distance'] as double);
       });
 
+      // 🔥 PERBAIKAN: Cek apakah widget masih aktif di layar sebelum memanggil setState
+      if (!mounted) return;
+
       setState(() {
         _dynamicRestaurants = tempRestaurants;
         _isLoading = false;
       });
     } catch (e) {
+      // 🔥 PERBAIKAN: Lakukan proteksi yang sama pada catch error block
+      if (!mounted) return;
+
       setState(() {
         _errorMessage = e.toString().replaceAll("Exception:", "");
         _isLoading = false;

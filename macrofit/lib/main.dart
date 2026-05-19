@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:macrofit/navigation_menu.dart';
 import 'package:macrofit/pages/login_page.dart';
 import 'package:macrofit/pages/onboarding_page.dart';
@@ -9,23 +10,19 @@ import 'package:macrofit/pages/register_page.dart';
 import 'firebase_options.dart';
 import 'Theme/Elements.dart';
 import 'package:flutter/services.dart';
-// 1. Import package dotenv
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
-  // 2. Wajib inisialisasi binding jika fungsi main bersifat async
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 3. Muat konfigurasi dari file key.env sebelum menjalankan aplikasi
+  // Muat konfigurasi dari file key.env
   try {
     await dotenv.load(fileName: "key.env");
   } catch (e) {
     debugPrint("MacroFit: Error loading key.env file: $e");
-    // Tetap lanjut meskipun file .env gagal dimuat,
-    // namun fitur AI mungkin tidak akan berjalan.
   }
 
-  // 4. Inisialisasi Firebase
+  // 4. Inisialisasi Firebase (SUDAH DIPERBAIKI)
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -34,7 +31,7 @@ Future<void> main() async {
     debugPrint("MacroFit: Firebase Initialization Error: $e");
   }
 
-  // 5. Sembunyikan Navigasi Bar Sistem (Samsung/Android)
+  // Sembunyikan Navigasi Bar Sistem
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(const MacroFit());
@@ -63,7 +60,7 @@ class MacroFit extends StatelessWidget {
   }
 }
 
-// --- LOGIKA PENGECEKAN STATUS USER ---
+// --- LOGIKA PENGECEKAN STATUS USER (Tetap Aman & Sesuai) ---
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
