@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+// 🔥 TARGET REVISI CONSTRUCTOR DI ADD_RECIPE_SHEET.DART
 class AddRecipeSheet extends StatefulWidget {
   final List<String> dietOptions;
   final Function(
@@ -12,10 +13,26 @@ class AddRecipeSheet extends StatefulWidget {
   )
   onPublish;
 
+  // 🌟 SUNTIKKAN 7 PARAMETER OPSIONAL INI SEBAGAI PENAMPUNG DATA EDIT
+  final String? initialTitle;
+  final String? initialCalories;
+  final List<String>? initialIngredients;
+  final List<String>? initialInstructions;
+  final String? initialSuitable;
+  final String? initialUnsuitable;
+  final bool isEditing;
+
   const AddRecipeSheet({
     super.key,
     required this.dietOptions,
     required this.onPublish,
+    this.initialTitle,
+    this.initialCalories,
+    this.initialIngredients,
+    this.initialInstructions,
+    this.initialSuitable,
+    this.initialUnsuitable,
+    this.isEditing = false, // Default false jika hanya posting baru
   });
 
   @override
@@ -24,17 +41,46 @@ class AddRecipeSheet extends StatefulWidget {
 
 class _AddRecipeSheetState extends State<AddRecipeSheet> {
   final _formKey = GlobalKey<FormState>();
-  final titleController = TextEditingController();
-  final calorieController = TextEditingController();
-  final ingredientsController = TextEditingController();
-  final instructionsController = TextEditingController();
 
-  String selectedSuitableDiet = 'Normal';
+  // Menggunakan late agar inisialisasi controller bisa dikondisikan di initState
+  late final TextEditingController titleController;
+  late final TextEditingController calorieController;
+  late final TextEditingController ingredientsController;
+  late final TextEditingController instructionsController;
+
+  String selectedSuitableDiet = 'healthy_lifestyle';
 
   @override
   void initState() {
     super.initState();
-    if (widget.dietOptions.isNotEmpty) {
+
+    // 1. Inisialisasi teks biasa (Judul & Kalori)
+    titleController = TextEditingController(
+      text: widget.isEditing ? widget.initialTitle : '',
+    );
+    calorieController = TextEditingController(
+      text: widget.isEditing ? widget.initialCalories : '',
+    );
+
+    // 2. 🔥 PARSING STRATEGY: Ubah List<String> dari database kembali menjadi String koma (, ) agar tampil di form
+    String ingredientsText = '';
+    if (widget.isEditing && widget.initialIngredients != null) {
+      ingredientsText = widget.initialIngredients!.join(', ');
+    }
+    ingredientsController = TextEditingController(text: ingredientsText);
+
+    String instructionsText = '';
+    if (widget.isEditing && widget.initialInstructions != null) {
+      instructionsText = widget.initialInstructions!.join(', ');
+    }
+    instructionsController = TextEditingController(text: instructionsText);
+
+    // 3. Inisialisasi nilai awal Dropdown gizi diet
+    if (widget.isEditing && widget.initialSuitable != null) {
+      if (widget.dietOptions.contains(widget.initialSuitable)) {
+        selectedSuitableDiet = widget.initialSuitable!;
+      }
+    } else if (widget.dietOptions.isNotEmpty) {
       selectedSuitableDiet = widget.dietOptions.first;
     }
   }
@@ -105,21 +151,29 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               Row(
                 children: [
                   Icon(
-                    Icons.restaurant_menu,
+                    widget.isEditing
+                        ? Icons.edit_note_rounded
+                        : Icons.restaurant_menu,
                     color: theme.primaryColor,
                     size: 24,
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    "Publish Resep Baru",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  // 🔥 UX DINAMIS: Judul Header berubah otomatis mengikuti mode
+                  Text(
+                    widget.isEditing ? "Edit Resep Anda" : "Publish Resep Baru",
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Bagikan kreasi kuliner sehatmu ke komunitas MacroFit",
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+              Text(
+                widget.isEditing
+                    ? "Perbarui detail menu masakan sehat Anda agar tetap akurat"
+                    : "Bagikan kreasi kuliner sehatmu ke komunitas MacroFit",
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const Divider(height: 24),
 
@@ -220,7 +274,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               ),
               const SizedBox(height: 20),
 
-              // 🔥 PENGEMBANGAN UI/UX LUAS: Satu Card Khusus yang Luas untuk Dropdown Pilihan Diet tunggal
+              // Dropdown Pilihan Diet tunggal
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -247,10 +301,19 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                       ),
                     ),
                     items: widget.dietOptions.map((String value) {
+                      // Kosmetik lokalisasi bahasa label dropdown di layar HP
+                      String displayLabel = value;
+                      if (value == 'gain_muscle')
+                        displayLabel = 'Menaikkan Massa Otot';
+                      if (value == 'healthy_lifestyle')
+                        displayLabel = 'Gaya Hidup Sehat';
+                      if (value == 'keto_diet') displayLabel = 'Diet Keto';
+                      if (value == 'vegetarian') displayLabel = 'Vegetarian';
+
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
-                          value,
+                          displayLabel,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -300,14 +363,20 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                         ingList,
                         insList,
                         selectedSuitableDiet,
-                        'None', // 🔥 Parameter pantangan otomatis diisi 'None' agar database tidak error
+                        widget.initialUnsuitable ?? 'None',
                       );
                       Navigator.pop(context);
                     }
                   },
-                  child: const Text(
-                    'Publish Resep Sekarang',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  // 🔥 UX DINAMIS: Label tombol berubah otomatis saat mode edit aktif
+                  child: Text(
+                    widget.isEditing
+                        ? 'Simpan Perubahan'
+                        : 'Publish Resep Sekarang',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

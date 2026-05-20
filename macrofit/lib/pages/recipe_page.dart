@@ -22,21 +22,21 @@ class _RecipePageState extends State<RecipePage> {
 
   bool _isGeneratingAI = false;
   int _remainingCounter = 2;
-  // 🔥 TIGA STATE FILTER TERISOLASI UNTUK MASING-MASING TAB
+
+  // TIGA STATE FILTER TERISOLASI UNTUK MASING-MASING TAB
   String _selectedCommunityDietFilter = 'All';
   String _selectedPublishedDietFilter = 'All';
   String _selectedSavedDietFilter = 'All';
 
   String get currentUserId => _auth.currentUser?.uid ?? '';
+
+  // KATEGORI SINKRON: Menggunakan string kode onboarding aplikasi MacroFit asli
   final List<String> _dietOptions = [
-    'Normal',
-    'Bulking',
-    'Cutting',
-    'Low Carb',
-    'Keto',
-    'Vegan',
-    'Vegetarian',
-    'High Protein',
+    'Menurunkan Berat Badan',
+    'gain_muscle',
+    'healthy_lifestyle',
+    'keto_diet',
+    'vegetarian',
   ];
 
   @override
@@ -99,12 +99,12 @@ class _RecipePageState extends State<RecipePage> {
           .doc(currentUserId)
           .get();
       double targetCalorie = 2000.0;
-      String dietCode = 'Normal';
+      String dietCode = 'healthy_lifestyle';
 
       if (userDoc.exists && userDoc.data() != null) {
         final userData = userDoc.data() as Map<String, dynamic>;
         targetCalorie = (userData['target_calories'] ?? 2000.0).toDouble();
-        dietCode = userData['diet_code'] ?? 'Normal';
+        dietCode = userData['diet_code'] ?? 'healthy_lifestyle';
       }
 
       final oldAIRecipesSnapshot = await _firestore
@@ -129,7 +129,6 @@ class _RecipePageState extends State<RecipePage> {
         ),
       );
 
-      // --- PERBAIKAN PROMPT & PEMETAAN KATEGORI AI ---
       final prompt =
           '''
       Anda adalah Chef Gizi Profesional untuk aplikasi MacroFit.
@@ -152,7 +151,7 @@ class _RecipePageState extends State<RecipePage> {
           "ingredients": ["100g Dada Ayam", "1 sdm Madu", "Perasan Lemon"],
           "instructions": ["Marinasi ayam dengan lemon dan madu", "Panggang hingga matang 20 menit"],
           "suitable_diet": "$dietCode",
-          "unsuitable_diet": "Vegan"
+          "unsuitable_diet": "None"
         }
       ]
       ''';
@@ -166,14 +165,13 @@ class _RecipePageState extends State<RecipePage> {
         for (var recipe in aiRecipesList) {
           final docRef = _firestore.collection('recipes').doc();
 
-          // Validasi tambahan di sisi klien (Dart) sebagai pengaman jika AI berhalusinasi teks kustom
           String aiSuitable = recipe['suitable_diet'] ?? dietCode;
           String aiUnsuitable = recipe['unsuitable_diet'] ?? 'None';
 
-          // Jika AI mengembalikan teks yang tidak terdaftar di _dietOptions, paksa kembali ke default/Normal
           if (!_dietOptions.contains(aiSuitable)) aiSuitable = dietCode;
-          if (aiUnsuitable != 'None' && !_dietOptions.contains(aiUnsuitable))
+          if (aiUnsuitable != 'None' && !_dietOptions.contains(aiUnsuitable)) {
             aiUnsuitable = 'None';
+          }
 
           batchInsert.set(docRef, {
             'title': recipe['title'] ?? 'Resep Kuliner Sehat AI',
@@ -185,10 +183,8 @@ class _RecipePageState extends State<RecipePage> {
             'instructions': recipe['instructions'] ?? [],
             'timestamp': FieldValue.serverTimestamp(),
             'savedBy': [],
-            'suitable_diet':
-                aiSuitable, // 🔥 Menggunakan kategori tervalidasi kaku
-            'unsuitable_diet':
-                aiUnsuitable, // 🔥 Menggunakan pantangan tervalidasi kaku
+            'suitable_diet': aiSuitable,
+            'unsuitable_diet': aiUnsuitable,
           });
         }
         await batchInsert.commit();
@@ -212,6 +208,60 @@ class _RecipePageState extends State<RecipePage> {
         });
       }
     }
+  }
+
+  // 🔥 UPDATE BESAR: Membuka AddRecipeSheet secara Full Screen untuk mengedit semua komponen resep lengkap!
+  void _showEditRecipeDialog(Map<String, dynamic> recipeData, String docId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Membuatnya full screen ke atas layar ponsel
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => AddRecipeSheet(
+        dietOptions: _dietOptions,
+        initialTitle: recipeData['title'],
+        initialCalories: recipeData['calories']?.toString(),
+        initialIngredients: List<String>.from(recipeData['ingredients'] ?? []),
+        initialInstructions: List<String>.from(
+          recipeData['instructions'] ?? [],
+        ),
+        initialSuitable: recipeData['suitable_diet'],
+        initialUnsuitable: recipeData['unsuitable_diet'],
+        isEditing: true,
+        onPublish:
+            (
+              title,
+              calories,
+              ingredients,
+              instructions,
+              suitable,
+              unsuitable,
+            ) async {
+              // Lakukan pembaruan massal komponen resep di dokumen Cloud Firestore terkait
+              await _firestore.collection('recipes').doc(docId).update({
+                'title': title,
+                'calories': calories,
+                'ingredients': ingredients,
+                'instructions': instructions,
+                'suitable_diet': suitable,
+                'unsuitable_diet': unsuitable,
+                'is_edited': true,
+                'last_update': FieldValue.serverTimestamp(),
+              });
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Resep kreasi Anda berhasil diperbarui secara lengkap!',
+                    ),
+                  ),
+                );
+              }
+            },
+      ),
+    );
   }
 
   void _showRecipeDetail(Map<String, dynamic> recipeData, String docId) {
@@ -238,7 +288,22 @@ class _RecipePageState extends State<RecipePage> {
           }
         },
       ),
-    );
+    ).then((_) {
+      // 🔥 PERBAIKAN SCHEDULER BINDING: Memberikan micro delay 150ms agar transisi sheet selesai
+      if (recipeData['userId'] == currentUserId &&
+          recipeData['trigger_edit'] == true) {
+        recipeData['trigger_edit'] = false;
+
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) {
+            _showEditRecipeDialog(
+              recipeData,
+              docId,
+            ); // Menyembulkan full-screen form edit
+          }
+        });
+      }
+    });
   }
 
   void _showAddRecipeDialog() {
@@ -256,8 +321,8 @@ class _RecipePageState extends State<RecipePage> {
               calories,
               ingredients,
               instructions,
-              suitable, // Data dropdown terfilter 'Cocok untuk'
-              unsuitable, // Data dropdown terfilter 'Pantangan untuk'
+              suitable,
+              unsuitable,
             ) async {
               final uDoc = await _firestore
                   .collection('users')
@@ -265,7 +330,6 @@ class _RecipePageState extends State<RecipePage> {
                   .get();
               String username = uDoc.data()?['username'] ?? 'User';
 
-              // Menyimpan resep kreasi mandiri user ke database komunitas
               await _firestore.collection('recipes').add({
                 'title': title,
                 'calories': calories,
@@ -277,10 +341,8 @@ class _RecipePageState extends State<RecipePage> {
                 'instructions': instructions,
                 'timestamp': FieldValue.serverTimestamp(),
                 'savedBy': [],
-                'suitable_diet':
-                    suitable, // 🔥 Mengunci string persis pilihan dropdown
-                'unsuitable_diet':
-                    unsuitable, // 🔥 Mengunci string persis pilihan dropdown
+                'suitable_diet': suitable,
+                'unsuitable_diet': unsuitable,
               });
             },
       ),
@@ -329,30 +391,23 @@ class _RecipePageState extends State<RecipePage> {
         return;
       }
 
-      // === CARI BLOK LOGIKA INI DI RECYCLE_PAGE.DART DAN UPDATE ===
-      // 4. LOGIKA UTAMA: JIKA YANG DI-SAVE ADALAH RESEP DARI 'AI'
       if (recipeType == 'AI') {
-        // Buat DOKUMEN SALINAN BARU yang terisolasi agar abadi di Tab Saved
         await _firestore.collection('recipes').add({
           'title': recipeData['title'],
           'calories': recipeData['calories'],
           'image_url': recipeData['image_url'],
           'username': recipeData['username'],
-          'type':
-              'Favorites', // Tetap Favorites agar tidak ikut terhapus Batch Delete AI
-          'origin_type':
-              'AI', // 🔥 SEBAGAI TRACKING: Tandai bahwa aslinya dari AI agar labelnya akurat
+          'type': 'Favorites',
+          'origin_type': 'AI',
           'userId': currentUserId,
           'ingredients': recipeData['ingredients'],
           'instructions': recipeData['instructions'],
           'timestamp': FieldValue.serverTimestamp(),
-          'savedBy': [currentUserId], // Menyimpan ID user di dokumen baru
-          'suitable_diet': recipeData['suitable_diet'] ?? 'Normal',
+          'savedBy': [currentUserId],
+          'suitable_diet': recipeData['suitable_diet'] ?? 'healthy_lifestyle',
           'unsuitable_diet': recipeData['unsuitable_diet'] ?? 'None',
         });
 
-        // 🔥 KEMBALIKAN BARIS INI: Cukup update array savedBy dokumen AI asli
-        // agar widget Stream di Tab AI mendeteksi perubahan dan mengubah bentuk ikonnya!
         await docRef.update({
           'savedBy': FieldValue.arrayUnion([currentUserId]),
         });
@@ -365,7 +420,6 @@ class _RecipePageState extends State<RecipePage> {
           );
         }
       } else {
-        // Jika resep dari tab Community, cukup gunakan cara lama (tambahkan ID ke array savedBy)
         await docRef.update({
           'savedBy': FieldValue.arrayUnion([currentUserId]),
         });
@@ -418,11 +472,11 @@ class _RecipePageState extends State<RecipePage> {
           ),
         ),
         backgroundColor: theme.scaffoldBackgroundColor,
-        // === CARI BLOK TABBARVIEW INI DI RECIPE_PAGE.DART DAN TIMPA ===
         body: TabBarView(
           children: [
-            _buildAITabView(), // Tab AI bersih, tidak mengirim callback filter apa pun
-            // Tab Community dengan filter mandiri
+            _buildAITabView(),
+
+            // Tab Community dengan filter mandiri & pendeteksi edit otomatis
             RecipeStreamView(
               key: ValueKey('stream_community_$_selectedCommunityDietFilter'),
               filterType: 'Community',
@@ -434,7 +488,12 @@ class _RecipePageState extends State<RecipePage> {
                   _selectedCommunityDietFilter = selectedDiet;
                 });
               },
-              onTapCard: _showRecipeDetail,
+              onTapCard: (recipeData, docId) {
+                if (recipeData['userId'] == currentUserId) {
+                  recipeData['trigger_edit'] = true;
+                }
+                _showRecipeDetail(recipeData, docId);
+              },
               onToggleFavorite: _toggleFavoriteRecipe,
             ),
 
@@ -450,7 +509,10 @@ class _RecipePageState extends State<RecipePage> {
                   _selectedPublishedDietFilter = selectedDiet;
                 });
               },
-              onTapCard: _showRecipeDetail,
+              onTapCard: (recipeData, docId) {
+                recipeData['trigger_edit'] = true;
+                _showRecipeDetail(recipeData, docId);
+              },
               onToggleFavorite: _toggleFavoriteRecipe,
             ),
 
@@ -468,7 +530,6 @@ class _RecipePageState extends State<RecipePage> {
     );
   }
 
-  // === CARI METHOD INI DI BAGIAN BAWAH RECIPE_PAGE.DART DAN RAPIKAN ===
   Widget _buildAITabView() {
     final theme = Theme.of(context);
     final bool isButtonDisabled = _remainingCounter <= 0 || _isGeneratingAI;
@@ -529,8 +590,6 @@ class _RecipePageState extends State<RecipePage> {
                             horizontal: 8,
                             vertical: 0,
                           ),
-                          minimumSize: Size.zero,
-                          maximumSize: const Size(130, 38),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -564,8 +623,6 @@ class _RecipePageState extends State<RecipePage> {
             filterType: 'AI',
             currentUserId: currentUserId,
             firestore: _firestore,
-            // 🔥 SEKARANG BERSIH: Parameter onDietFilterChanged & savedDietFilter
-            // sudah dihapus total dari sini karena Tab AI tidak membutuhkannya lagi!
             onTapCard: _showRecipeDetail,
             onToggleFavorite: _toggleFavoriteRecipe,
           ),
@@ -574,14 +631,12 @@ class _RecipePageState extends State<RecipePage> {
     );
   }
 
-  // --- 🔥 METHOD LAYOUT BARU UNTUK TAB SAVED DENGAN WIDGET DROPDOWN FILTER DIET ---
   Widget _buildSavedTabView() {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return Column(
       children: [
-        // Spanduk Filter Diet
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -618,9 +673,20 @@ class _RecipePageState extends State<RecipePage> {
                   color: theme.primaryColor.withOpacity(0.5),
                 ),
                 items: ['All', ..._dietOptions].map((String value) {
+                  String displayLabel = value;
+                  if (value == 'All') displayLabel = 'Semua Kategori Diet';
+                  if (value == 'Menurunkan Berat Badan')
+                    displayLabel = 'Menurunkan Berat Badan';
+                  if (value == 'gain_muscle')
+                    displayLabel = 'Menaikkan Massa Otot';
+                  if (value == 'healthy_lifestyle')
+                    displayLabel = 'Gaya Hidup Sehat';
+                  if (value == 'keto_diet') displayLabel = 'Diet Keto';
+                  if (value == 'vegetarian') displayLabel = 'Vegetarian';
+
                   return DropdownMenuItem<String>(
                     value: value,
-                    child: Text(value == 'All' ? 'Semua Diet' : value),
+                    child: Text(displayLabel),
                   );
                 }).toList(),
                 onChanged: (String? newValue) {
@@ -634,7 +700,6 @@ class _RecipePageState extends State<RecipePage> {
             ],
           ),
         ),
-        // Stream List dengan key unik yang diperbarui sesuai filter aktif
         Expanded(
           child: RecipeStreamView(
             key: ValueKey('stream_favorites_$_selectedSavedDietFilter'),
@@ -644,12 +709,10 @@ class _RecipePageState extends State<RecipePage> {
             savedDietFilter: _selectedSavedDietFilter,
             onDietFilterChanged: (selectedDiet) {
               setState(() {
-                _selectedSavedDietFilter =
-                    selectedDiet; // Set state halaman induk saat dropdown berubah
+                _selectedSavedDietFilter = selectedDiet;
               });
             },
-            onTapCard:
-                _showRecipeDetail, // 🔥 PERBAIKAN: Diubah dari _navigateToDetail menjadi _showRecipeDetail
+            onTapCard: _showRecipeDetail,
             onToggleFavorite: _toggleFavoriteRecipe,
           ),
         ),
