@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RecipeCard extends StatelessWidget {
   final String title;
@@ -9,6 +8,9 @@ class RecipeCard extends StatelessWidget {
   final String type;
   final List<dynamic> ingredients;
   final List<dynamic> instructions;
+  final bool isSaved;
+  final VoidCallback onFavPressed;
+  final VoidCallback onTapCard; // 🔥 Callback tambahan untuk deteksi klik kartu
 
   const RecipeCard({
     super.key,
@@ -19,6 +21,9 @@ class RecipeCard extends StatelessWidget {
     required this.type,
     required this.ingredients,
     required this.instructions,
+    required this.isSaved,
+    required this.onFavPressed,
+    required this.onTapCard, // Wajib disertakan
   });
 
   @override
@@ -30,13 +35,11 @@ class RecipeCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          // TODO: Navigasi ke Halaman Detail Resep nanti jika diperlukan
-        },
+        onTap:
+            onTapCard, // 🔥 Menghubungkan klik ke fungsi BottomSheet Detail Resep
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Gambar Utama Resep berbentuk Persegi Panjang Melengkung
             if (imageUrl != null && imageUrl!.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
@@ -50,7 +53,6 @@ class RecipeCard extends StatelessWidget {
                   fit: BoxFit.cover,
                 ),
               ),
-
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -59,7 +61,6 @@ class RecipeCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Chip Penanda Sumber (AI atau Komunitas)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -68,7 +69,9 @@ class RecipeCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: type == 'AI'
                               ? Colors.purple.withOpacity(0.1)
-                              : theme.primaryColor.withOpacity(0.1),
+                              : theme.primaryColor.withOpacity(
+                                  0.1,
+                                ), // 🔥 Menggunakan warna utama aplikasi (Biru)
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -78,34 +81,45 @@ class RecipeCard extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             color: type == 'AI'
                                 ? Colors.purple
-                                : theme.primaryColor,
+                                : theme
+                                      .primaryColor, // 🔥 Menyesuaikan warna Biru tema
                           ),
                         ),
                       ),
-
-                      // Informasi Kalori Berwarna Menarik
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.local_fire_department,
                             size: 18,
-                            color: Colors.orange,
+                            color: Colors.orange.shade700,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '$calories Kcal',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange,
+                              color: Colors.orange.shade700,
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              isSaved ? Icons.bookmark : Icons.bookmark_border,
+                              color: isSaved
+                                  ? theme.primaryColor
+                                  : Colors
+                                        .grey, // 🔥 Warna bookmark diubah ke Biru tema saat aktif
+                              size: 22,
+                            ),
+                            onPressed: onFavPressed,
                           ),
                         ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-
-                  // Judul Resep Makanan
                   Text(
                     title,
                     style: const TextStyle(
@@ -114,8 +128,6 @@ class RecipeCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-
-                  // Nama Pembuat Resep
                   Text(
                     'Oleh: $author',
                     style: TextStyle(

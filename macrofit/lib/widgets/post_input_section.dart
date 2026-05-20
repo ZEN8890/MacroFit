@@ -1,123 +1,198 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 
 class PostInputSection extends StatelessWidget {
   final TextEditingController controller;
-  final XFile? selectedImage;
-  final bool isPosting; // 🔥 Tambahkan ini
+  final List<XFile> selectedImages; // Menerima list multi-image
+  final String currentUserImageUrl; // Menerima URL foto profil pengirim
   final VoidCallback onPickImage;
+  final bool isPosting;
   final VoidCallback onCreatePost;
   final VoidCallback onClearImage;
+  final Function(int index) onRemoveSpecificImage;
 
   const PostInputSection({
     super.key,
     required this.controller,
-    required this.selectedImage,
-    required this.isPosting, // 🔥 Tambahkan ini
+    required this.selectedImages,
+    required this.currentUserImageUrl,
     required this.onPickImage,
+    required this.isPosting,
     required this.onCreatePost,
     required this.onClearImage,
+    required this.onRemoveSpecificImage,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12.0,
+        vertical: 8.0,
+      ), // Diperkecil sedikit agar makin hemat ruang
+      color: theme.cardColor,
+      // 🔥 SOLUSI OVERFLOW: Membungkus dengan SingleChildScrollView agar adaptif saat terdorong scroll/keyboard
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // BARIS INPUT UTAMA: Avatar + Kolom Teks
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const CircleAvatar(
-                  backgroundColor: Colors.grey,
-                  child: Icon(Icons.person, color: Colors.white),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: theme.primaryColor.withOpacity(0.15),
+                  backgroundImage: currentUserImageUrl.isNotEmpty
+                      ? NetworkImage(currentUserImageUrl)
+                      : null,
+                  child: currentUserImageUrl.isEmpty
+                      ? Icon(Icons.person, size: 18, color: theme.primaryColor)
+                      : null,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
+
+                // FIELD KETIK THREAD
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    enabled: !isPosting, // Matikan input saat sedang posting
-                    decoration: const InputDecoration(
-                      hintText: "Bagikan progres diet atau menumu...",
+                    maxLines: 3,
+                    minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      hintText: 'Type your thoughts here...',
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                      ),
                       border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
                     ),
-                    maxLines: null,
                   ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.image_outlined,
-                    color: selectedImage != null
-                        ? theme.primaryColor
-                        : Colors.grey,
-                  ),
-                  onPressed: isPosting
-                      ? null
-                      : onPickImage, // Matikan tombol saat posting
-                ),
-
-                // 🔥 ANIMASI TRANSISI TOMBOL KIRIM
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: isPosting
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              theme.primaryColor,
-                            ),
-                          ),
-                        )
-                      : IconButton(
-                          key: const ValueKey('send_icon'),
-                          icon: Icon(Icons.send, color: theme.primaryColor),
-                          onPressed: onCreatePost,
-                        ),
                 ),
               ],
             ),
-            if (selectedImage != null)
+
+            // PREVIEW BANYAK FOTO SEKALIGUS (Horizontal Grid)
+            if (selectedImages.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 12.0),
-                child: Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 21 / 9,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(selectedImage!.path),
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    if (!isPosting) // Sembunyikan tombol silang saat sedang diupload
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: GestureDetector(
-                          onTap: onClearImage,
-                          child: const CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Colors.black54,
-                            child: Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 16,
+                padding: const EdgeInsets.only(top: 10.0, bottom: 2.0),
+                child: SizedBox(
+                  height: 85,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: selectedImages.length,
+                    itemBuilder: (context, index) {
+                      return Stack(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 6, right: 10),
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: theme.primaryColor.withOpacity(0.2),
+                                width: 1,
+                              ),
+                              image: DecorationImage(
+                                image: FileImage(
+                                  File(selectedImages[index].path),
+                                ),
+                                fit: BoxFit.cover,
+                              ),
                             ),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => onRemoveSpecificImage(index),
+                              child: CircleAvatar(
+                                radius: 9,
+                                backgroundColor: Colors.red.shade600,
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 11,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+            const Divider(height: 12, thickness: 0.5),
+
+            // ACTION BAR: Tombol Tambah Media & Kirim Post
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.primaryColor,
+                    padding: EdgeInsets.zero,
+                  ),
+                  icon: Icon(
+                    selectedImages.isNotEmpty
+                        ? Icons.add_photo_alternate
+                        : Icons.image_outlined,
+                    size: 20,
+                  ),
+                  label: Text(
+                    selectedImages.isEmpty
+                        ? "Foto/Media"
+                        : "Tambah (${selectedImages.length}/5)",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: isPosting ? null : onPickImage,
+                ),
+
+                isPosting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 0,
+                          ),
+                          minimumSize: const Size(70, 32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: onCreatePost,
+                        child: const Text(
+                          'Post',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                  ],
-                ),
-              ),
+              ],
+            ),
           ],
         ),
       ),

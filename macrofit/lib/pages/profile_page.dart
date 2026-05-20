@@ -15,8 +15,15 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // 🔥 Ubah ke Stateful hanya untuk mengelola state lokal loading foto profil
   bool _isPhotoUploading = false;
+
+  final List<Map<String, String>> _dietOptions = [
+    {'name': 'Menurunkan Berat Badan', 'code': 'Menurunkan Berat Badan'},
+    {'name': 'Menaikkan Massa Otot', 'code': 'gain_muscle'},
+    {'name': 'Gaya Hidup Sehat', 'code': 'healthy_lifestyle'},
+    {'name': 'Diet Keto', 'code': 'keto_diet'},
+    {'name': 'Vegetarian', 'code': 'vegetarian'},
+  ];
 
   Future<void> _pickAndUploadImage(BuildContext context) async {
     final auth = FirebaseAuth.instance;
@@ -27,12 +34,11 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final XFile? pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 40, // Kompres gambar agar unggahan hemat data & cepat
+        imageQuality: 40,
       );
 
       if (pickedFile == null) return;
 
-      // Pemicu animasi lingkaran loading di dalam avatar profil
       setState(() {
         _isPhotoUploading = true;
       });
@@ -87,7 +93,7 @@ class _ProfilePageState extends State<ProfilePage> {
             .child('${user.uid}.jpg')
             .delete();
       } catch (e) {
-        // Abaikan jika file memang tidak ada
+        // Abaikan jika file tidak ada
       }
 
       if (mounted) {
@@ -104,13 +110,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 🔥 PERBAGUS: Desain Modern & Premium Dialog Konfirmasi Logout
   void _showLogoutConfirmationDialog(BuildContext context) {
-    final theme = Theme.of(context);
     showDialog(
       context: context,
-      barrierDismissible:
-          false, // Wajib pilih opsi, tidak bisa asal ketuk luar layar
+      barrierDismissible: false,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 8,
@@ -119,7 +122,6 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Ikon Peringatan Estetis
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -133,13 +135,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Judul Dialog
               const Text(
                 'Konfirmasi Keluar',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              // Deskripsi Teks
               Text(
                 'Apakah Anda yakin ingin mengakhiri sesi dan keluar dari aplikasi MacroFit?',
                 textAlign: TextAlign.center,
@@ -150,7 +150,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Tombol Aksi Jajaran Kanan-Kiri yang Seimbang
               Row(
                 children: [
                   Expanded(
@@ -253,6 +252,177 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // 🔥 FUNGSI BARU: Dialog Konfirmasi Perubahan Program Diet & Target Nutrisi
+  void _showDietConfirmationDialog(BuildContext context, String newDietCode) {
+    final theme = Theme.of(context);
+    String displayName =
+        _dietOptions.firstWhere((opt) => opt['code'] == newDietCode)['name'] ??
+        newDietCode;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.amber,
+              size: 28,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Ubah Target Diet',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin mengubah fokus program ke "$displayName"?\n\nTindakan ini akan mengkalkulasi ulang seluruh target kalori harian dan batas nutrisi makro (P/K/L) Anda secara otomatis.',
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(
+                () {},
+              ); // Memaksa Dropdown me-refresh posisi ke data Firestore semula
+            },
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              _updateDietProgram(newDietCode); // Pemicu kalkulator gizi
+            },
+            child: const Text(
+              'Ganti Program',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateDietProgram(String selectedDietCode) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final userDoc = await userRef.get();
+
+      if (!userDoc.exists || userDoc.data() == null) return;
+      final data = userDoc.data() as Map<String, dynamic>;
+
+      double weight = (data['weight'] ?? 60.0).toDouble();
+      double height = (data['height'] ?? 165.0).toDouble();
+      int age = data['age'] ?? 21;
+      String gender = data['gender'] ?? 'Laki-laki';
+      double activityMultiplier = (data['activity_multiplier'] ?? 1.2)
+          .toDouble();
+
+      double bmr;
+      if (gender == 'Laki-laki' || gender == 'Male') {
+        bmr = 66.5 + (13.75 * weight) + (5.003 * height) - (6.75 * age);
+      } else {
+        bmr = 655.1 + (9.563 * weight) + (1.85 * height) - (4.676 * age);
+      }
+
+      double baseTdee = bmr * activityMultiplier;
+
+      int targetCalories;
+      switch (selectedDietCode) {
+        case 'Menurunkan Berat Badan':
+          targetCalories = (baseTdee - 500).round();
+          break;
+        case 'gain_muscle':
+          targetCalories = (baseTdee + 400).round();
+          break;
+        case 'keto_diet':
+          targetCalories = (baseTdee - 200).round();
+          break;
+        case 'healthy_lifestyle':
+        case 'vegetarian':
+        default:
+          targetCalories = baseTdee.round();
+          break;
+      }
+
+      if (targetCalories < 1200) targetCalories = 1200;
+
+      int targetCarbs;
+      int targetProteins;
+      int targetFats;
+
+      switch (selectedDietCode) {
+        case 'Menurunkan Berat Badan':
+          targetCarbs = ((targetCalories * 0.40) / 4).round();
+          targetProteins = ((targetCalories * 0.40) / 4).round();
+          targetFats = ((targetCalories * 0.20) / 9).round();
+          break;
+        case 'gain_muscle':
+          targetCarbs = ((targetCalories * 0.50) / 4).round();
+          targetProteins = ((targetCalories * 0.30) / 4).round();
+          targetFats = ((targetCalories * 0.20) / 9).round();
+          break;
+        case 'keto_diet':
+          targetCarbs = ((targetCalories * 0.05) / 4).round();
+          targetProteins = ((targetCalories * 0.25) / 4).round();
+          targetFats = ((targetCalories * 0.70) / 9).round();
+          break;
+        case 'healthy_lifestyle':
+        case 'vegetarian':
+        default:
+          targetCarbs = ((targetCalories * 0.55) / 4).round();
+          targetProteins = ((targetCalories * 0.20) / 4).round();
+          targetFats = ((targetCalories * 0.25) / 9).round();
+          break;
+      }
+
+      await userRef.update({
+        'diet_code': selectedDietCode,
+        'target_calories': targetCalories,
+        'target_carbs': targetCarbs,
+        'target_proteins': targetProteins,
+        'target_fats': targetFats,
+      });
+
+      if (mounted) {
+        String displayName = selectedDietCode;
+        if (selectedDietCode == 'gain_muscle')
+          displayName = 'Menaikkan Massa Otot';
+        if (selectedDietCode == 'healthy_lifestyle')
+          displayName = 'Gaya Hidup Sehat';
+        if (selectedDietCode == 'keto_diet') displayName = 'Diet Keto';
+        if (selectedDietCode == 'vegetarian') displayName = 'Vegetarian';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '⚡ Program diganti ke $displayName! Target dihitung ulang: $targetCalories kkal | P: ${targetProteins}g | K: ${targetCarbs}g | L: ${targetFats}g',
+            ),
+            backgroundColor: Colors.teal,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Gagal mengkalkulasi ulang data diet program: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -298,12 +468,12 @@ class _ProfilePageState extends State<ProfilePage> {
             String username = userData['username'] ?? 'User MacroFit';
             String profilePic = userData['profile_picture'] ?? '';
             String bio = userData['bio'] ?? '';
+            String currentDiet = userData['diet_code'] ?? 'healthy_lifestyle';
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // 1. TAMPILAN FOTO PROFIL DENGAN CIRCULAR LOADING INTEGRASI
                   Center(
                     child: Stack(
                       alignment: Alignment.bottomRight,
@@ -328,17 +498,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                         profilePic.isNotEmpty)
                                     ? NetworkImage(profilePic)
                                     : null,
-                                // 🔥 TAMBAHAN: Efek lingkaran loading interaktif tepat di tengah bulatan foto profil
                                 child: _isPhotoUploading
-                                    ? SizedBox(
+                                    ? const SizedBox(
                                         width: 24,
                                         height: 24,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 3,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                theme.primaryColor,
-                                              ),
                                         ),
                                       )
                                     : (profilePic.isEmpty
@@ -352,7 +517,6 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                         ),
-                        // Sembunyikan ikon kamera kecil jika status sedang loading ganti foto
                         if (!_isPhotoUploading)
                           GestureDetector(
                             onTap: () => _pickAndUploadImage(context),
@@ -412,7 +576,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 2. SWITCH THEME
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -449,7 +612,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  // 3. SEPARATED BIO CARD
                   InlineBioCard(
                     userId: user.uid,
                     initialBio: bio,
@@ -458,7 +620,70 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 4. KARTU SERTIFIKASI SECURITY
+                  // DROPDOWN PROGRAM DIET DENGAN POPUP KONFIRMASI
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: themeProvider.isDarkMode
+                            ? Colors.white10
+                            : Colors.black.withOpacity(0.04),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 6.0,
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        key:
+                            UniqueKey(), // 🔥 Memaksa widget dropdown merestart state posisi jika user klik batal
+                        value:
+                            _dietOptions.any(
+                              (opt) => opt['code'] == currentDiet,
+                            )
+                            ? currentDiet
+                            : 'healthy_lifestyle',
+                        dropdownColor: theme.cardColor,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: themeProvider.isDarkMode
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Fokus Target Program Diet',
+                          labelStyle: TextStyle(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          border: InputBorder.none,
+                          icon: const Icon(
+                            Icons.track_changes,
+                            color: Colors.green,
+                            size: 24,
+                          ),
+                        ),
+                        items: _dietOptions.map((Map<String, String> option) {
+                          return DropdownMenuItem<String>(
+                            value: option['code'],
+                            child: Text(option['name']!),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null && newValue != currentDiet) {
+                            // 🔥 PANGGIL POPUP KONFIRMASI SEBELUM PERUBAHAN DILAKUKAN
+                            _showDietConfirmationDialog(context, newValue);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(

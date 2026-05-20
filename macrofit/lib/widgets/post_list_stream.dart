@@ -47,47 +47,42 @@ class PostListStream extends StatelessWidget {
 
         final posts = snapshot.data!.docs;
 
+        // === TIMPA BAGIAN ITEMBUILDER DI DALAM LISTVIEW.BUILDER POST_LIST_STREAM.DART ===
         return ListView.builder(
-          // 🔥 KUNCI SEAMLESS UI: Berikan padding internal alami di dalam ListView
-          // Jarak bottom disetel 90.0 agar item terakhir melompati tinggi Navigation Bar dengan anggun
-          padding: const EdgeInsets.only(
-            top: 8.0,
-            left: 12.0,
-            right: 12.0,
-            bottom: 90.0,
-          ),
+          padding: const EdgeInsets.only(bottom: 80),
+          shrinkWrap: true,
+          physics:
+              const NeverScrollableScrollPhysics(), // Mematikan scroll internal agar layout NestedScrollView lancar
           itemCount: posts.length,
           itemBuilder: (context, index) {
-            final post = posts[index];
-            final postData = post.data() as Map<String, dynamic>;
-            final postId = post.id;
+            // 🔥 1. DEKLARASIKAN VARIABEL UTAMA DI SINI TERLEBIH DAHULU
+            final doc = posts[index];
+            final data = doc.data() as Map<String, dynamic>;
 
-            String username = postData['username'] ?? 'Anonymous';
-            String content = postData['content'] ?? '';
-            List<dynamic> likes = postData['likes'] ?? [];
-            int commentCount = postData['comment_count'] ?? 0;
-            String? imageUrl = postData['image_url'];
-            String postUid = postData['uid'] ?? '';
+            // 🔥 2. JEMBATAN KONVERSI DATA IMAGE MULTI-URL (Aman dari data lawas/baru)
+            final List<dynamic> currentImageUrls = data['image_urls'] is List
+                ? data['image_urls']
+                : (data['image_url'] != null &&
+                          data['image_url'].toString().isNotEmpty
+                      ? [data['image_url']]
+                      : []);
 
-            bool isLiked = auth.currentUser != null
-                ? likes.contains(auth.currentUser!.uid)
-                : false;
-            bool isOwner =
-                auth.currentUser != null && postUid == auth.currentUser!.uid;
-
+            // 🔥 3. KEMBALIKAN KOMPONEN POSTCARD YANG SUDAH TERHUBUNG SEMPURNA
             return PostCard(
-              postId: postId,
-              username: username,
-              content: content,
-              imageUrl: imageUrl,
-              likes: likes,
-              commentCount: commentCount,
-              isLiked: isLiked,
-              postUid: postUid,
-              timestamp: postData['timestamp'] as Timestamp?,
-              isOwner: isOwner,
-              onDelete: () => onDeletePost(postId, imageUrl),
-              onLikeToggle: () => onLikeToggle(postId, likes),
+              postId: doc.id,
+              username: data['username'] ?? 'User MacroFit',
+              content: data['content'] ?? '',
+              imageUrls:
+                  currentImageUrls, // Menggunakan variabel jembatan currentImageUrls
+              profileImage: data['profile_image'] ?? '',
+              likes: data['likes'] ?? [],
+              commentCount: data['comment_count'] ?? 0,
+              isLiked: (data['likes'] ?? []).contains(auth.currentUser?.uid),
+              postUid: data['uid'] ?? '',
+              timestamp: data['timestamp'] as Timestamp?,
+              isOwner: (data['uid'] ?? '') == auth.currentUser?.uid,
+              onDelete: () => onDeletePost(doc.id, data['image_url']),
+              onLikeToggle: () => onLikeToggle(doc.id, data['likes'] ?? []),
             );
           },
         );

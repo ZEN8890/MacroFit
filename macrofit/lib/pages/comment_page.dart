@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/storage_services.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../widgets/post_input_section.dart';
 
 class CommentPage extends StatefulWidget {
   final String postId;
@@ -24,24 +25,54 @@ class CommentPage extends StatefulWidget {
 
 class _CommentPageState extends State<CommentPage> {
   final TextEditingController _commentController = TextEditingController();
+  // 🔥 PARAMETER BARU: FocusNode untuk memaksa keyboard otomatis menyembul saat klik Reply
+  final FocusNode _inputFocusNode = FocusNode();
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 🔥 Properti Unggah Gambar Komentar
-  XFile? _selectedCommentImage;
+  List<XFile> _selectedCommentImages = [];
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
   bool _isCommentPosting = false;
 
-  Future<void> _pickCommentImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() => _selectedCommentImage = image);
+  Future<void> _pickCommentImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage();
+      if (images.isNotEmpty) {
+        int totalImagesNow = _selectedCommentImages.length + images.length;
+
+        if (totalImagesNow > 3) {
+          int sisaSlot = 3 - _selectedCommentImages.length;
+          if (sisaSlot > 0) {
+            setState(() {
+              _selectedCommentImages.addAll(images.take(sisaSlot));
+            });
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '⚠️ Batas maksimal balasan komentar adalah 3 foto!',
+                ),
+                backgroundColor: Colors.amber,
+              ),
+            );
+          }
+        } else {
+          setState(() {
+            _selectedCommentImages.addAll(images);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal mengambil foto komentar: $e");
     }
   }
 
   Future<void> _submitComment() async {
-    if (_commentController.text.trim().isEmpty && _selectedCommentImage == null)
+    if (_commentController.text.trim().isEmpty &&
+        _selectedCommentImages.isEmpty)
       return;
     final user = _auth.currentUser;
     if (user == null) return;
@@ -49,22 +80,30 @@ class _CommentPageState extends State<CommentPage> {
     setState(() => _isCommentPosting = true);
 
     try {
-      String commentImageUrl = '';
-
-      // 1. Jika ada gambar, upload ke Firebase Storage folder 'comments'
-      if (_selectedCommentImage != null) {
-        commentImageUrl = await _storageService.uploadImage(
-          _selectedCommentImage!,
-          'comments',
+      List<String> uploadedImageUrls = [];
+      if (_selectedCommentImages.isNotEmpty) {
+        uploadedImageUrls = await Future.wait(
+          _selectedCommentImages.map(
+            (image) => _storageService.uploadImage(image, 'comments'),
+          ),
         );
       }
 
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      String username = userDoc.exists
-          ? (userDoc.data()?['username'] ?? 'User')
-          : 'User';
+      String username = 'User MacroFit';
+      String profilePic = '';
 
-      // 2. Transaksi penyimpanan data ke Firestore Sub-Koleksi Comments
+      if (userDoc.exists && userDoc.data() != null) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        username =
+            userData['username'] ?? userData['displayName'] ?? 'User MacroFit';
+        profilePic =
+            userData['profile_picture'] ??
+            userData['profile_image_url'] ??
+            userData['photoUrl'] ??
+            '';
+      }
+
       await _firestore
           .collection('posts')
           .doc(widget.postId)
@@ -72,19 +111,19 @@ class _CommentPageState extends State<CommentPage> {
           .add({
             'uid': user.uid,
             'username': username,
+            'profile_image': profilePic,
             'content': _commentController.text.trim(),
-            'image_url': commentImageUrl, // Menyimpan link gambar komentar
+            'image_urls': uploadedImageUrls,
             'timestamp': FieldValue.serverTimestamp(),
           });
 
-      // 3. Update jumlah penghitung komentar di dokumen utama Post
       await _firestore.collection('posts').doc(widget.postId).update({
         'comment_count': FieldValue.increment(1),
       });
 
       _commentController.clear();
       setState(() {
-        _selectedCommentImage = null;
+        _selectedCommentImages.clear();
       });
     } catch (e) {
       ScaffoldMessenger.of(
@@ -97,16 +136,13 @@ class _CommentPageState extends State<CommentPage> {
 
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return 'Baru saja';
-
     DateTime commentDate = timestamp.toDate();
     DateTime nowDate = DateTime.now();
     Duration difference = nowDate.difference(commentDate);
 
-    // Menyusun string jam dan menit dengan format 2 digit (misal: 09:05)
     String timeString =
         "${commentDate.hour.toString().padLeft(2, '0')}:${commentDate.minute.toString().padLeft(2, '0')}";
 
-    // Array nama bulan singkat untuk estetika UI
     List<String> months = [
       'Jan',
       'Feb',
@@ -128,20 +164,18 @@ class _CommentPageState extends State<CommentPage> {
     } else if (difference.inMinutes < 60) {
       return '${difference.inMinutes} mnt lalu';
     } else if (difference.inHours < 24 && commentDate.day == nowDate.day) {
-      // Jika masih di hari yang sama, tampilkan jamnya saja (Hari ini)
       return 'Hari ini, $timeString';
     } else if (commentDate.year == nowDate.year) {
-      // Jika masih di tahun yang sama tapi beda hari (misal: 14 Mei, 09:15)
       return '${commentDate.day} $monthName, $timeString';
     } else {
-      // 🔥 JIKA BEDA TAHUN: Tampilkan tanggal, bulan, tahun, dan jam lengkap ala WhatsApp
-      // Hasil akhir misal: 18 Des 2025, 14:30
       return '${commentDate.day} $monthName ${commentDate.year}, $timeString';
     }
   }
 
-  // 🔥 FUNGSI BARU: Menarik Pesan Komentar (Unsend)
-  Future<void> _unsendComment(String commentId, String? imageUrl) async {
+  Future<void> _unsendComment(
+    String commentId,
+    List<dynamic>? imageUrls,
+  ) async {
     bool confirmUnsend =
         await showDialog(
           context: context,
@@ -165,25 +199,25 @@ class _CommentPageState extends State<CommentPage> {
     if (!confirmUnsend) return;
 
     try {
-      // 1. Jika pesan yang ditarik punya gambar di Storage, hapus file fisiknya dulu agar hemat cloud
-      if (imageUrl != null && imageUrl.isNotEmpty) {
-        try {
-          await FirebaseStorage.instance.refFromURL(imageUrl).delete();
-        } catch (e) {
-          debugPrint("Gagal hapus gambar komentar saat unsend: $e");
+      if (imageUrls != null && imageUrls.isNotEmpty) {
+        for (var url in imageUrls) {
+          try {
+            await FirebaseStorage.instance.refFromURL(url.toString()).delete();
+          } catch (e) {
+            debugPrint("Gagal hapus file lampiran: $e");
+          }
         }
       }
 
-      // 2. Update dokumen di Firestore: Ubah teks konten & kosongkan link gambar
       await _firestore
           .collection('posts')
           .doc(widget.postId)
           .collection('comments')
           .doc(commentId)
           .update({
-            'content': 'telah menarik pesan ini', // Teks penanda unsend
-            'image_url': '', // Hapus gambar
-            'is_unsent': true, // Flag tambahan untuk styling UI nanti
+            'content': 'telah menarik pesan ini',
+            'image_urls': [],
+            'is_unsent': true,
           });
 
       if (mounted) {
@@ -198,7 +232,6 @@ class _CommentPageState extends State<CommentPage> {
     }
   }
 
-  // 🔥 FUNGSI BARU: Memunculkan Dialog untuk Mengedit Isi Komentar
   Future<void> _editComment(String commentId, String currentContent) async {
     final TextEditingController editController = TextEditingController(
       text: currentContent,
@@ -224,17 +257,12 @@ class _CommentPageState extends State<CommentPage> {
               if (newContent.isEmpty) return;
 
               try {
-                // Jalankan perintah update data ke Cloud Firestore
                 await _firestore
                     .collection('posts')
                     .doc(widget.postId)
                     .collection('comments')
                     .doc(commentId)
-                    .update({
-                      'content': newContent,
-                      'is_edited':
-                          true, // Menandai bahwa pesan ini pernah diedit
-                    });
+                    .update({'content': newContent, 'is_edited': true});
 
                 if (context.mounted) Navigator.pop(context);
 
@@ -257,14 +285,29 @@ class _CommentPageState extends State<CommentPage> {
     );
   }
 
+  // 🔥 FUNGSI REPLIKASI UX: Menyisipkan teks tag @username ke form input & buka keyboard
+  void _triggerReply(String targetUsername) {
+    setState(() {
+      _commentController.text = "@$targetUsername ";
+      // Pindahkan kursor teks ke baris paling kanan setelah nama user
+      _commentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _commentController.text.length),
+      );
+    });
+    // Picu keyboard HP menyembul fokus ke kolom
+    _inputFocusNode.requestFocus();
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
+    _inputFocusNode.dispose(); // Hapus focusNode dari memori
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = _auth.currentUser;
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -278,7 +321,6 @@ class _CommentPageState extends State<CommentPage> {
         foregroundColor: theme.appBarTheme.foregroundColor,
         elevation: 0,
       ),
-      // 🔥 PERBAIKAN 1: Izinkan Scaffold menyesuaikan diri secara otomatis saat keyboard naik
       resizeToAvoidBottomInset: true,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -343,16 +385,25 @@ class _CommentPageState extends State<CommentPage> {
 
                       String username = commentData['username'] ?? 'User';
                       String content = commentData['content'] ?? '';
-                      String? commentImg = commentData['image_url'];
-                      String commentUid = commentData['uid'] ?? '';
+                      String commentProfilePic =
+                          commentData['profile_image'] ?? '';
 
+                      final List<dynamic> commentImages =
+                          commentData['image_urls'] is List
+                          ? commentData['image_urls']
+                          : (commentData['image_url'] != null &&
+                                    commentData['image_url']
+                                        .toString()
+                                        .isNotEmpty
+                                ? [commentData['image_url']]
+                                : []);
+
+                      String commentUid = commentData['uid'] ?? '';
                       bool isUnsent = commentData['is_unsent'] ?? false;
                       bool isEdited = commentData['is_edited'] ?? false;
                       bool isMyComment =
-                          _auth.currentUser != null &&
-                          commentUid == _auth.currentUser!.uid;
+                          currentUser != null && commentUid == currentUser.uid;
 
-                      // 🔥 BALUT DENGAN CARD AGAR SINKRON DENGAN TEMA MACROFITTHEME Anda
                       return Card(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -363,28 +414,34 @@ class _CommentPageState extends State<CommentPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Baris Atas: Profil Nama, Waktu, dan Menu Tiga Titik
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Row(
                                     children: [
-                                      const CircleAvatar(
+                                      CircleAvatar(
                                         radius: 14,
-                                        backgroundColor: Colors.teal,
-                                        child: Icon(
-                                          Icons.person,
-                                          size: 16,
-                                          color: Colors.white,
-                                        ),
+                                        backgroundColor: theme.primaryColor
+                                            .withOpacity(0.15),
+                                        backgroundImage:
+                                            commentProfilePic.isNotEmpty
+                                            ? NetworkImage(commentProfilePic)
+                                            : null,
+                                        child: commentProfilePic.isEmpty
+                                            ? Icon(
+                                                Icons.person,
+                                                size: 14,
+                                                color: theme.primaryColor,
+                                              )
+                                            : null,
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
                                         username,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 14,
+                                          fontSize: 13,
                                         ),
                                       ),
                                     ],
@@ -401,8 +458,6 @@ class _CommentPageState extends State<CommentPage> {
                                           fontSize: 11,
                                         ),
                                       ),
-
-                                      // 🔥 TOMBOL MENU TIGA TITIK (Hanya muncul jika ini pesan milik saya DAN belum ditarik)
                                       if (isMyComment && !isUnsent)
                                         PopupMenuButton<String>(
                                           icon: const Icon(
@@ -417,7 +472,7 @@ class _CommentPageState extends State<CommentPage> {
                                             } else if (value == 'unsend') {
                                               _unsendComment(
                                                 commentId,
-                                                commentImg,
+                                                commentImages,
                                               );
                                             }
                                           },
@@ -463,27 +518,58 @@ class _CommentPageState extends State<CommentPage> {
                               ),
                               const SizedBox(height: 6),
 
-                              // Baris Tengah: Isi Teks Komentar Kustom
+                              // AREA TEKS BALASAN KOMENTAR
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      isUnsent ? '$username $content' : content,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isUnsent
-                                            ? Colors.grey
-                                            : (isDarkMode
-                                                  ? Colors.white
-                                                  : Colors.black87),
-                                        fontStyle: isUnsent
-                                            ? FontStyle.italic
-                                            : FontStyle.normal,
-                                      ),
-                                    ),
+                                    // 🔥 INTEGRASI UX DETEKSI @MENTION:
+                                    // Jika pesan diawali dengan karakter '@', kita beri warna khusus yang kontras menarik
+                                    child: content.startsWith('@') && !isUnsent
+                                        ? RichText(
+                                            text: TextSpan(
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: isDarkMode
+                                                    ? Colors.white
+                                                    : Colors.black87,
+                                              ),
+                                              children: [
+                                                TextSpan(
+                                                  text:
+                                                      content.split(' ').first +
+                                                      ' ', // Ambil kata @username-nya
+                                                  style: TextStyle(
+                                                    color: theme
+                                                        .primaryColor, // Warna teks mention mengikuti tema
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                TextSpan(
+                                                  text: content.substring(
+                                                    content.indexOf(' ') + 1,
+                                                  ), // Ambil sisa isi pesannya
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : Text(
+                                            isUnsent
+                                                ? '$username $content'
+                                                : content,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: isUnsent
+                                                  ? Colors.grey
+                                                  : (isDarkMode
+                                                        ? Colors.white
+                                                        : Colors.black87),
+                                              fontStyle: isUnsent
+                                                  ? FontStyle.italic
+                                                  : FontStyle.normal,
+                                            ),
+                                          ),
                                   ),
-                                  // 🔥 INDIKATOR DIEDIT (Muncul teks kecil 'diedit' jika pesan sudah diubah pengguna)
                                   if (isEdited && !isUnsent)
                                     const Padding(
                                       padding: EdgeInsets.only(left: 6.0),
@@ -499,20 +585,74 @@ class _CommentPageState extends State<CommentPage> {
                                 ],
                               ),
 
-                              // Baris Bawah: Gambar Lampiran Media Komentar
-                              if (!isUnsent &&
-                                  commentImg != null &&
-                                  commentImg.isNotEmpty)
+                              if (!isUnsent && commentImages.isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Image.network(
-                                      commentImg,
-                                      height: 140,
-                                      width: 200,
-                                      fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    height: 110,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: commentImages.length,
+                                      itemBuilder: (context, imgIndex) {
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            right: 8,
+                                          ),
+                                          width: 110,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            child: Image.network(
+                                              commentImages[imgIndex]
+                                                  .toString(),
+                                              fit: BoxFit.cover,
+                                              loadingBuilder:
+                                                  (context, child, progress) {
+                                                    if (progress == null)
+                                                      return child;
+                                                    return const Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                          ),
+                                                    );
+                                                  },
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
+                                  ),
+                                ),
+
+                              // 🔥 TOMBOL UTAMA ACTION REPLY
+                              if (!isUnsent)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(50, 24),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.reply_outlined,
+                                      size: 14,
+                                      color: Colors.grey,
+                                    ),
+                                    label: const Text(
+                                      "Reply",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    onPressed: () => _triggerReply(
+                                      username,
+                                    ), // Picu auto mention
                                   ),
                                 ),
                             ],
@@ -524,115 +664,43 @@ class _CommentPageState extends State<CommentPage> {
                 },
               ),
             ),
-
             const Divider(height: 1, thickness: 1),
 
-            // 🔥 PERBAIKAN 2: Bungkus Bar Input dengan Padding Statis Menggunakan Kontrol Bottom Inset Otomatis
-            // Kita menghapus padding manual 'MediaQuery.of(context).viewInsets.bottom' karena sudah ditangani Scaffold
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 12,
-                right: 12,
-                top: 8,
-                bottom: 12,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // PREVIEW FOTO KOMENTAR SEBELUM DIKIRIM
-                  if (_selectedCommentImage != null)
-                    Container(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      alignment: Alignment.centerLeft,
-                      child: Stack(
-                        alignment: Alignment.topRight,
-                        children: [
-                          SizedBox(
-                            width: 120,
-                            child: AspectRatio(
-                              aspectRatio: 4 / 3,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  File(_selectedCommentImage!.path),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (!_isCommentPosting)
-                            GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedCommentImage = null),
-                              child: const CircleAvatar(
-                                radius: 10,
-                                backgroundColor: Colors.black,
-                                child: Icon(
-                                  Icons.close,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+            StreamBuilder<DocumentSnapshot>(
+              stream: _firestore
+                  .collection('users')
+                  .doc(currentUser?.uid)
+                  .snapshots(),
+              builder: (context, userSnapshot) {
+                String currentUserAvatarUrl = '';
+                if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                  final userData =
+                      userSnapshot.data!.data() as Map<String, dynamic>?;
+                  currentUserAvatarUrl =
+                      userData?['profile_picture'] ??
+                      userData?['profile_image_url'] ??
+                      userData?['photoUrl'] ??
+                      '';
+                }
 
-                  // Baris Input Teks Dan Tombol Kirim
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.image_outlined,
-                          color: _selectedCommentImage != null
-                              ? theme.primaryColor
-                              : Colors.grey,
-                        ),
-                        onPressed: _isCommentPosting ? null : _pickCommentImage,
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          enabled: !_isCommentPosting,
-                          decoration: const InputDecoration(
-                            hintText: "Tulis balasan Anda...",
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(24),
-                              ),
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                          ),
-                          maxLines: null,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _isCommentPosting
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.primaryColor,
-                                ),
-                              )
-                            : IconButton(
-                                icon: Icon(
-                                  Icons.send,
-                                  color: theme.primaryColor,
-                                ),
-                                onPressed: _submitComment,
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                // 🌟 CATATAN: Di dalam post_input_section.dart pastikan widget TextField-nya
+                // dipasangkan properti focusNode: widget.focusNode (jika ingin keyboard menyembul otomatis)
+                return PostInputSection(
+                  controller: _commentController,
+                  selectedImages: _selectedCommentImages,
+                  currentUserImageUrl: currentUserAvatarUrl,
+                  onPickImage: _pickCommentImages,
+                  isPosting: _isCommentPosting,
+                  onCreatePost: _submitComment,
+                  onClearImage: () =>
+                      setState(() => _selectedCommentImages.clear()),
+                  onRemoveSpecificImage: (index) {
+                    setState(() {
+                      _selectedCommentImages.removeAt(index);
+                    });
+                  },
+                );
+              },
             ),
           ],
         ),

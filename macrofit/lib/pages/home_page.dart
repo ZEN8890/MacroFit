@@ -10,6 +10,7 @@ import '../widgets/nutritional_card.dart';
 import '../widgets/water_tracker_card.dart';
 import '../widgets/food_verification_card.dart';
 import 'profile_page.dart';
+import '../widgets/exercise_recommendation_card.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -198,21 +199,27 @@ class _HomePageState extends State<HomePage>
               WelcomeHeader(name: userData['first_name'] ?? "User"),
               const DailyInsightCarousel(),
               const SizedBox(height: 25),
+              ExerciseRecommendationCard(
+                dietCode: userData['diet_code'] ?? 'healthy_lifestyle',
+              ),
+              const SizedBox(height: 25),
+              // 1. SINKRONISASI KARTU NUTRISI (P / K / L)
+              // Pastikan komponen NutritionalCard di dalamnya sudah membaca field 'target_carbs', 'target_proteins', 'target_fats'
               NutritionalCard(userData: userData, uid: user.uid),
               const SizedBox(height: 15),
-              // Tampilkan kartu verifikasi jika ada data sementara
+
               if (_tempFoodData != null)
                 FoodVerificationCard(
                   data: _tempFoodData!,
                   onConfirm: _confirmSaveFood,
                   onCancel: () => setState(() => _tempFoodData = null),
                 ),
-              // Water tracker card
+
               WaterTrackerCard(uid: user.uid, userData: userData),
               const SizedBox(height: 25),
               _buildSectionTitle("Target Kalori", colorScheme),
 
-              // --- REUSABLE STREAM: Memakai getFilteredFoodLogs untuk mengambil data Harian ---
+              // 2. SINKRONISASI KARTU PROGRES KALORI HARIAN
               StreamBuilder<QuerySnapshot>(
                 stream: DatabaseService().getFilteredFoodLogs(
                   user.uid,
@@ -220,11 +227,9 @@ class _HomePageState extends State<HomePage>
                   null,
                 ),
                 builder: (context, logSnapshot) {
-                  // Menggunakan num agar fleksibel menerima tipe data int/double dari Firestore
                   num totalConsumed = 0;
 
                   if (logSnapshot.hasData) {
-                    // Iterasi seluruh makanan hari ini untuk menjumlahkan kalorinya
                     for (var doc in logSnapshot.data!.docs) {
                       var foodItem = doc.data() as Map<String, dynamic>;
                       totalConsumed += (foodItem['calories'] ?? 0);
@@ -232,9 +237,8 @@ class _HomePageState extends State<HomePage>
                   }
 
                   return CalorieTargetCard(
-                    targetCal: (userData['daily_calorie_target'] ?? 2000)
-                        .toInt(),
-                    // Konversi num ke int dengan .toInt() agar lolos type safety compiler Dart
+                    // 🔥 PERBAIKAN: Ubah key dari 'daily_calorie_target' menjadi 'target_calories'
+                    targetCal: (userData['target_calories'] ?? 2000).toInt(),
                     consumedCal: totalConsumed.toInt(),
                   );
                 },

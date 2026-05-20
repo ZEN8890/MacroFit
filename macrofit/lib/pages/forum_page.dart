@@ -19,49 +19,71 @@ class _ForumPageState extends State<ForumPage> {
   final TextEditingController _postController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  XFile? _selectedImage;
+  List<XFile> _selectedImages = []; // Array list penampung banyak foto
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
   bool _isPosting = false;
 
+  Future<void> _pickMultiImages() async {
+    final List<XFile> images = await _picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      setState(() {
+        _selectedImages.addAll(images);
+      });
+    }
+  }
+
   Future<void> _createPost() async {
-    if (_postController.text.trim().isEmpty && _selectedImage == null) return;
+    if (_postController.text.trim().isEmpty && _selectedImages.isEmpty) return;
     final user = _auth.currentUser;
     if (user == null) return;
 
     setState(() => _isPosting = true);
 
     try {
-      String imageUrl = '';
-      if (_selectedImage != null) {
-        imageUrl = await _storageService.uploadImage(_selectedImage!, 'posts');
+      // Proses upload paralel multiple images ke Firebase Storage
+      List<String> imageUrls = [];
+      if (_selectedImages.isNotEmpty) {
+        imageUrls = await Future.wait(
+          _selectedImages.map(
+            (image) => _storageService.uploadImage(image, 'posts'),
+          ),
+        );
       }
 
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      String username = userDoc.exists
-          ? (userDoc.data()?['username'] ?? 'Anonymous')
-          : 'Anonymous';
-      String profilePic = userDoc.exists
-          ? (userDoc.data()?['profile_picture'] ?? '')
-          : '';
+
+      String username = 'User MacroFit';
+      String profilePic = '';
+
+      if (userDoc.exists && userDoc.data() != null) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        username =
+            userData['username'] ?? userData['displayName'] ?? 'User MacroFit';
+        profilePic =
+            userData['profile_picture'] ??
+            userData['profile_image_url'] ??
+            userData['photoUrl'] ??
+            '';
+      }
 
       await _firestore.collection('posts').add({
         'uid': user.uid,
         'username': username,
         'profile_image': profilePic,
         'content': _postController.text.trim(),
-        'image_url': imageUrl,
+        'image_urls': imageUrls, // Menyimpan array string URL foto
         'timestamp': FieldValue.serverTimestamp(),
         'likes': [],
         'comment_count': 0,
       });
 
       _postController.clear();
-      setState(() => _selectedImage = null);
+      setState(() => _selectedImages.clear());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thread berhasil dibagikan!')),
+          const SnackBar(content: Text('Thread foto berhasil dibagikan!')),
         );
       }
     } catch (e) {
@@ -160,9 +182,48 @@ class _ForumPageState extends State<ForumPage> {
     }
   }
 
+  // 🔥 PERBAIKAN FUNGSIONAL: Ubah Single Picker Menjadi Multi Picker dengan Batas Maksimal 5 Foto
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) setState(() => _selectedImage = image);
+    try {
+      // 1. Panggil pickMultiImage untuk mengizinkan user menyeleksi banyak foto sekaligus di galeri
+      final List<XFile> images = await _picker.pickMultiImage();
+
+      if (images.isNotEmpty) {
+        // Hitung total kombinasi foto yang sudah ada + foto yang baru dipilih
+        int totalImagesNow = _selectedImages.length + images.length;
+
+        if (totalImagesNow > 5) {
+          // Jika melampaui limit, hitung berapa slot sisa yang masih tersedia
+          int sisaSlot = 5 - _selectedImages.length;
+
+          if (sisaSlot > 0) {
+            // Ambil foto baru hanya sebanyak sisa slot yang tersedia
+            setState(() {
+              _selectedImages.addAll(images.take(sisaSlot));
+            });
+          }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '⚠️ Batas maksimal adalah 5 foto! Foto selebihnya otomatis diabaikan.',
+                ),
+                backgroundColor: Colors.amber,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          // Jika totalnya masih di bawah atau pas 5 foto, masukkan semua tanpa potongan
+          setState(() {
+            _selectedImages.addAll(images);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal mengambil banyak foto: $e");
+    }
   }
 
   @override
@@ -184,21 +245,31 @@ class _ForumPageState extends State<ForumPage> {
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: NestedScrollView(
-            headerSliverBuilder:
-                (BuildContext context, bool innerBoxIsScrolled) {
-                  return <Widget>[
-                    SliverAppBar(
-                      title: const Text(
-                        "MacroFit Community",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      pinned: true,
-                      floating: true,
-                      forceElevated: innerBoxIsScrolled,
-                      backgroundColor: theme.appBarTheme.backgroundColor,
-                      foregroundColor: theme.appBarTheme.foregroundColor,
-                      elevation: 0,
-                      bottom: TabBar(
+            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+              return <Widget>[
+                SliverAppBar(
+                  title: const Text(
+                    "MacroFit Community",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  pinned: true,
+                  floating: true,
+                  forceElevated: innerBoxIsScrolled,
+                  backgroundColor: theme.appBarTheme.backgroundColor,
+                  foregroundColor: theme.appBarTheme.foregroundColor,
+                  elevation: 0,
+                  // 🌟 SOLUSI UTAMA 1: Tambahkan toolbarHeight dan tentukan space yang cukup
+                  // agar ketika appBar menciut/pinned, dia tidak mencekik tab bar di bawahnya.
+                  toolbarHeight: 56.0,
+
+                  // 🌟 SOLUSI UTAMA 2: Ubah dari 48 menjadi 74 mengikuti tinggi asli Tab + Icon
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(74.0),
+                    child: Material(
+                      color:
+                          theme.appBarTheme.backgroundColor ??
+                          theme.scaffoldBackgroundColor,
+                      child: TabBar(
                         labelColor: isDarkMode
                             ? Colors.white
                             : theme.primaryColor,
@@ -219,27 +290,58 @@ class _ForumPageState extends State<ForumPage> {
                         ],
                       ),
                     ),
-                    SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PostInputSection(
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Gunakan StreamBuilder/FutureBuilder ringan jika ingin realtime, atau baca langsung data profile yang sudah ada
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _firestore
+                            .collection('users')
+                            .doc(currentUser?.uid)
+                            .snapshots(),
+                        builder: (context, userSnapshot) {
+                          String userAvatarUrl = '';
+                          if (userSnapshot.hasData &&
+                              userSnapshot.data!.exists) {
+                            final userData =
+                                userSnapshot.data!.data()
+                                    as Map<String, dynamic>?;
+                            userAvatarUrl =
+                                userData?['profile_picture'] ??
+                                userData?['profile_image_url'] ??
+                                userData?['photoUrl'] ??
+                                '';
+                          }
+
+                          return PostInputSection(
                             controller: _postController,
-                            selectedImage: _selectedImage,
+                            // 🔥 1. PREVIEW MULTI-IMAGE: Oper seluruh list agar bisa dirender menyamping
+                            selectedImages: _selectedImages,
+                            // 🔥 2. FOTO PROFIL AKTIF: Berikan URL foto profil user saat ini
+                            currentUserImageUrl: userAvatarUrl,
                             onPickImage: _pickImage,
                             isPosting: _isPosting,
                             onCreatePost: _createPost,
                             onClearImage: () =>
-                                setState(() => _selectedImage = null),
-                          ),
-                          const Divider(thickness: 1, height: 1),
-                        ],
+                                setState(() => _selectedImages.clear()),
+                            // Fungsi hapus satu foto tertentu di baris preview
+                            onRemoveSpecificImage: (index) {
+                              setState(() {
+                                _selectedImages.removeAt(index);
+                              });
+                            },
+                          );
+                        },
                       ),
-                    ),
-                  ];
-                },
-            // 🔥 PERBAIKAN MUTLAK: Pembungkus Padding bottom 50.0 dibuang total
-            // Sekarang TabBarView terpasang bersih agar scrolling lancar seamless tanpa terpotong
+                      const Divider(thickness: 1, height: 1),
+                    ],
+                  ),
+                ),
+              ];
+            },
             body: TabBarView(
               children: [
                 PostListStream(

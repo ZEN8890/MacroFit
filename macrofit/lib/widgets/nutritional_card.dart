@@ -69,24 +69,33 @@ class NutritionalCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // 🔥 PERBAIKAN: Mengubah key dari 'target_protein' menjadi 'target_proteins' (ditambah huruf 's' agar sinkron dengan profil)
               NutritionProgressBar(
                 label: "Protein",
                 current: (logData['consumed_protein'] ?? 0).toDouble(),
-                target: (userData['target_protein'] ?? 0).toDouble(),
+                target:
+                    (userData['target_proteins'] ??
+                            userData['target_protein'] ??
+                            0)
+                        .toDouble(),
                 color: Colors.redAccent,
               ),
+
               NutritionProgressBar(
                 label: "Karbohidrat",
                 current: (logData['consumed_carbs'] ?? 0).toDouble(),
                 target: (userData['target_carbs'] ?? 0).toDouble(),
                 color: Colors.blueAccent,
               ),
+
               NutritionProgressBar(
                 label: "Lemak",
                 current: (logData['consumed_fats'] ?? 0).toDouble(),
                 target: (userData['target_fats'] ?? 0).toDouble(),
                 color: Colors.orangeAccent,
               ),
+
               NutritionProgressBar(
                 label: "Gula",
                 current: currentSugar,
