@@ -25,6 +25,32 @@ class _ProfilePageState extends State<ProfilePage> {
     {'name': 'Vegetarian', 'code': 'vegetarian'},
   ];
 
+  // FUNGSI HELPER: Menghitung sisa hari pembatasan ganti nama (Aturan 14 Hari)
+  int _getRemainingDaysToUpdateName(Timestamp? lastUpdate) {
+    if (lastUpdate == null) return 0;
+
+    final DateTime lastUpdateDateTime = lastUpdate.toDate();
+    final DateTime now = DateTime.now();
+
+    final int differenceInDays = now.difference(lastUpdateDateTime).inDays;
+    final int remainingDays = 14 - differenceInDays;
+
+    return remainingDays > 0 ? remainingDays : 0;
+  }
+
+  // 🟢 FUNGSI HELPER BARU: Menghitung sisa hari pembatasan ganti USERNAME (Aturan 14 Hari)
+  int _getRemainingDaysToUpdateUsername(Timestamp? lastUpdate) {
+    if (lastUpdate == null) return 0;
+
+    final DateTime lastUpdateDateTime = lastUpdate.toDate();
+    final DateTime now = DateTime.now();
+
+    final int differenceInDays = now.difference(lastUpdateDateTime).inDays;
+    final int remainingDays = 14 - differenceInDays;
+
+    return remainingDays > 0 ? remainingDays : 0;
+  }
+
   Future<void> _pickAndUploadImage(BuildContext context) async {
     final auth = FirebaseAuth.instance;
     final storage = FirebaseStorage.instance;
@@ -202,25 +228,71 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showEditNameDialog(BuildContext context, String currentName) {
+  // 🟢 UPDATE PENUH: Dialog edit identitas kini melacak batasan 14 hari secara terpisah untuk Nama dan Username
+  void _showEditNameDialog(
+    BuildContext context,
+    String currentName,
+    Timestamp? lastNameUpdate,
+    String currentHandle,
+    Timestamp? lastUsernameUpdate,
+  ) {
     final nameController = TextEditingController(text: currentName);
+    final handleController = TextEditingController(text: currentHandle);
     final theme = Theme.of(context);
+
+    final int remainingNameDays = _getRemainingDaysToUpdateName(lastNameUpdate);
+    final int remainingUsernameDays = _getRemainingDaysToUpdateUsername(
+      lastUsernameUpdate,
+    );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
-          'Ubah Nama Pengguna',
+          'Ubah Identitas Akun',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: "Nama Pengguna",
-            hintText: "Masukkan nama baru...",
-          ),
-          maxLength: 30,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // FIELD NAMA LENGKAP
+            TextField(
+              controller: nameController,
+              enabled:
+                  remainingNameDays <=
+                  0, // Kunci field jika cooldown nama aktif
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: "Nama Lengkap",
+                prefixIcon: const Icon(Icons.person_outline, size: 20),
+                errorText: remainingNameDays > 0
+                    ? 'Tunggu $remainingNameDays hari lagi'
+                    : null,
+              ),
+              maxLength: 30,
+            ),
+            const SizedBox(height: 8),
+
+            // FIELD USERNAME HANDLE UNIK
+            TextField(
+              controller: handleController,
+              enabled:
+                  remainingUsernameDays <=
+                  0, // Kunci field jika cooldown username aktif
+              decoration: InputDecoration(
+                labelText: "Username Unik",
+                prefixText: "@",
+                hintText: "contoh: steven_dev",
+                prefixIcon: const Icon(Icons.alternate_email, size: 20),
+                errorText: remainingUsernameDays > 0
+                    ? 'Tunggu $remainingUsernameDays hari lagi'
+                    : null,
+              ),
+              maxLength: 20,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -228,22 +300,78 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
-            onPressed: () async {
-              String newName = nameController.text.trim();
-              if (newName.isEmpty) return;
+            onPressed: (remainingNameDays > 0 && remainingUsernameDays > 0)
+                ? null // Matikan tombol Simpan jika kedua field sedang terkunci cooldown 14 hari
+                : () async {
+                    String newName = nameController.text.trim();
+                    String newHandle = handleController.text
+                        .trim()
+                        .toLowerCase()
+                        .replaceAll(' ', '');
 
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(FirebaseAuth.instance.currentUser!.uid)
-                  .update({'username': newName});
+                    if (newName.isEmpty || newHandle.isEmpty) return;
 
-              if (context.mounted) Navigator.pop(context);
-            },
+                    final Map<String, dynamic> updatePayload = {};
+
+                    // 1. EVALUASI JALUR PERUBAHAN NAMA
+                    if (newName != currentName && remainingNameDays <= 0) {
+                      updatePayload['username'] = newName;
+                      updatePayload['last_name_update'] =
+                          FieldValue.serverTimestamp();
+                    }
+
+                    // 2. EVALUASI JALUR PERUBAHAN USERNAME
+                    if (newHandle != currentHandle &&
+                        remainingUsernameDays <= 0) {
+                      // Jalankan query pengecekan keunikan username ke database server
+                      final checkDuplication = await FirebaseFirestore.instance
+                          .collection('users')
+                          .where('username_handle', isEqualTo: newHandle)
+                          .get();
+
+                      bool isTakenByOthers = false;
+                      for (var doc in checkDuplication.docs) {
+                        if (doc.id != FirebaseAuth.instance.currentUser!.uid) {
+                          isTakenByOthers = true;
+                        }
+                      }
+
+                      if (isTakenByOthers) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                '⚠️ Username telah digunakan oleh akun lain! Silakan gunakan nama lain.',
+                              ),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      updatePayload['username_handle'] = newHandle;
+                      updatePayload['last_username_update'] =
+                          FieldValue.serverTimestamp();
+                    }
+
+                    // Eksekusi pembaruan ke database murni jika ada muatan payload data yang berubah
+                    if (updatePayload.isNotEmpty) {
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(FirebaseAuth.instance.currentUser!.uid)
+                          .update(updatePayload);
+                    }
+
+                    if (context.mounted) Navigator.pop(context);
+                  },
             child: Text(
               'Simpan',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: theme.primaryColor,
+                color: (remainingNameDays > 0 && remainingUsernameDays > 0)
+                    ? Colors.grey
+                    : theme.primaryColor,
               ),
             ),
           ),
@@ -252,7 +380,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // 🔥 FUNGSI BARU: Dialog Konfirmasi Perubahan Program Diet & Target Nutrisi
   void _showDietConfirmationDialog(BuildContext context, String newDietCode) {
     final theme = Theme.of(context);
     String displayName =
@@ -286,9 +413,7 @@ class _ProfilePageState extends State<ProfilePage> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(
-                () {},
-              ); // Memaksa Dropdown me-refresh posisi ke data Firestore semula
+              setState(() {});
             },
             child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
@@ -303,7 +428,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              _updateDietProgram(newDietCode); // Pemicu kalkulator gizi
+              _updateDietProgram(newDietCode);
             },
             child: const Text(
               'Ganti Program',
@@ -323,7 +448,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
       final userDoc = await userRef.get();
 
-      if (!userDoc.exists || userDoc.data() == null) return;
+      if (!userRef.id.isNotEmpty || userDoc.data() == null) return;
       final data = userDoc.data() as Map<String, dynamic>;
 
       double weight = (data['weight'] ?? 60.0).toDouble();
@@ -466,9 +591,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
             final userData = snapshot.data!.data() as Map<String, dynamic>;
             String username = userData['username'] ?? 'User MacroFit';
+            String usernameHandle =
+                userData['username_handle'] ?? 'belum_diatur';
             String profilePic = userData['profile_picture'] ?? '';
             String bio = userData['bio'] ?? '';
             String currentDiet = userData['diet_code'] ?? 'healthy_lifestyle';
+
+            Timestamp? lastNameUpdate = userData['last_name_update'];
+            Timestamp? lastUsernameUpdate =
+                userData['last_username_update']; // 🟢 Ambil data timestamp ganti username
+
+            final int remainingNameDays = _getRemainingDaysToUpdateName(
+              lastNameUpdate,
+            );
+            final int remainingUsernameDays = _getRemainingDaysToUpdateUsername(
+              lastUsernameUpdate,
+            );
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -549,25 +687,79 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   const SizedBox(height: 8),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  // SEKSI INPUT & EDIT IDENTITAS PENGGUNA
+                  Column(
                     children: [
-                      const SizedBox(width: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(width: 32),
+                          Text(
+                            username,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit,
+                              size: 16,
+                              color:
+                                  (remainingNameDays > 0 &&
+                                      remainingUsernameDays > 0)
+                                  ? Colors.grey.shade400
+                                  : Colors.grey,
+                            ),
+                            onPressed: () => _showEditNameDialog(
+                              context,
+                              username,
+                              lastNameUpdate,
+                              usernameHandle,
+                              lastUsernameUpdate, // 🟢 Oper parameter baru ke struktur dialog
+                            ),
+                          ),
+                        ],
+                      ),
                       Text(
-                        username,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        '@$usernameHandle',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: theme.primaryColor,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.edit,
-                          size: 16,
-                          color: Colors.grey,
+                      const SizedBox(height: 8),
+
+                      // INDIKATOR COOLDOWN NAMA
+                      if (remainingNameDays > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Text(
+                            "*Nama Profil dapat diubah kembali dalam $remainingNameDays hari.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber.shade700,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                        onPressed: () => _showEditNameDialog(context, username),
-                      ),
+
+                      // 🟢 INDIKATOR COOLDOWN USERNAME BARU
+                      if (remainingUsernameDays > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Text(
+                            "*Username unik (@) dapat diubah kembali dalam $remainingUsernameDays hari.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.purple.shade400,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   Text(
@@ -620,7 +812,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // DROPDOWN PROGRAM DIET DENGAN POPUP KONFIRMASI
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -638,8 +829,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         vertical: 6.0,
                       ),
                       child: DropdownButtonFormField<String>(
-                        key:
-                            UniqueKey(), // 🔥 Memaksa widget dropdown merestart state posisi jika user klik batal
+                        key: UniqueKey(),
                         value:
                             _dietOptions.any(
                               (opt) => opt['code'] == currentDiet,
@@ -676,7 +866,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         }).toList(),
                         onChanged: (String? newValue) {
                           if (newValue != null && newValue != currentDiet) {
-                            // 🔥 PANGGIL POPUP KONFIRMASI SEBELUM PERUBAHAN DILAKUKAN
                             _showDietConfirmationDialog(context, newValue);
                           }
                         },

@@ -1,6 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // 🔥 IMPORT IMAGE PICKER
 
-// 🔥 TARGET REVISI CONSTRUCTOR DI ADD_RECIPE_SHEET.DART
 class AddRecipeSheet extends StatefulWidget {
   final List<String> dietOptions;
   final Function(
@@ -10,10 +11,11 @@ class AddRecipeSheet extends StatefulWidget {
     List<String> instructions,
     String suitable,
     String unsuitable,
+    List<XFile>
+    images, // 🔥 PARAMETER BARU: Mengirim file gambar lokal ke RecipePage untuk diupload
   )
   onPublish;
 
-  // 🌟 SUNTIKKAN 7 PARAMETER OPSIONAL INI SEBAGAI PENAMPUNG DATA EDIT
   final String? initialTitle;
   final String? initialCalories;
   final List<String>? initialIngredients;
@@ -32,7 +34,7 @@ class AddRecipeSheet extends StatefulWidget {
     this.initialInstructions,
     this.initialSuitable,
     this.initialUnsuitable,
-    this.isEditing = false, // Default false jika hanya posting baru
+    this.isEditing = false,
   });
 
   @override
@@ -42,7 +44,6 @@ class AddRecipeSheet extends StatefulWidget {
 class _AddRecipeSheetState extends State<AddRecipeSheet> {
   final _formKey = GlobalKey<FormState>();
 
-  // Menggunakan late agar inisialisasi controller bisa dikondisikan di initState
   late final TextEditingController titleController;
   late final TextEditingController calorieController;
   late final TextEditingController ingredientsController;
@@ -50,11 +51,14 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
 
   String selectedSuitableDiet = 'healthy_lifestyle';
 
+  // 🔥 STATE BARU: Menampung daftar gambar pilihan pengguna
+  List<XFile> _selectedImages = [];
+  final ImagePicker _imagePicker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
 
-    // 1. Inisialisasi teks biasa (Judul & Kalori)
     titleController = TextEditingController(
       text: widget.isEditing ? widget.initialTitle : '',
     );
@@ -62,7 +66,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
       text: widget.isEditing ? widget.initialCalories : '',
     );
 
-    // 2. 🔥 PARSING STRATEGY: Ubah List<String> dari database kembali menjadi String koma (, ) agar tampil di form
     String ingredientsText = '';
     if (widget.isEditing && widget.initialIngredients != null) {
       ingredientsText = widget.initialIngredients!.join(', ');
@@ -75,7 +78,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
     }
     instructionsController = TextEditingController(text: instructionsText);
 
-    // 3. Inisialisasi nilai awal Dropdown gizi diet
     if (widget.isEditing && widget.initialSuitable != null) {
       if (widget.dietOptions.contains(widget.initialSuitable)) {
         selectedSuitableDiet = widget.initialSuitable!;
@@ -94,6 +96,30 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
     super.dispose();
   }
 
+  // 🔥 FUNGSI BARU: Mengambil banyak gambar & membatasi maksimal 5 file
+  Future<void> _pickImagesFromGallery() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage();
+      if (images.isNotEmpty) {
+        setState(() {
+          // Gabungkan gambar yang sudah ada dengan yang baru diambil, lalu potong maks 5 gambar
+          _selectedImages = [..._selectedImages, ...images].take(5).toList();
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mengambil gambar: $e')));
+    }
+  }
+
+  // 🔥 FUNGSI BARU: Menghapus gambar tertentu dari list
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -109,7 +135,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +184,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                     size: 24,
                   ),
                   const SizedBox(width: 10),
-                  // 🔥 UX DINAMIS: Judul Header berubah otomatis mengikuti mode
                   Text(
                     widget.isEditing ? "Edit Resep Anda" : "Publish Resep Baru",
                     style: const TextStyle(
@@ -177,12 +202,139 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               ),
               const Divider(height: 24),
 
+              // SECTION INPUT MULTI-IMAGE GALLERY (MAKSIMAL 5 GAMBAR)
+              if (!widget.isEditing) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Foto Masakan Kuliner (Maksimal 5)",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      "${_selectedImages.length}/5",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _selectedImages.length == 5
+                            ? Colors.redAccent
+                            : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  height: 90,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _selectedImages.length < 5
+                        ? _selectedImages.length + 1
+                        : 5,
+                    itemBuilder: (context, index) {
+                      if (index == _selectedImages.length &&
+                          _selectedImages.length < 5) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10.0),
+                          child: InkWell(
+                            onTap: _pickImagesFromGallery,
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: 90,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isDarkMode
+                                      ? Colors.white24
+                                      : Colors.black12,
+                                  style: BorderStyle.solid,
+                                  width: 1.5,
+                                ),
+                                color: theme.primaryColor.withOpacity(0.02),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    color: theme.primaryColor,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    "Tambah",
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.file(
+                                File(_selectedImages[index].path),
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => _removeImage(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // 1. Input Nama Makanan
               TextFormField(
                 controller: titleController,
                 textCapitalization: TextCapitalization.words,
+                // 🟢 OPSI B IMPLEMENTASI: Matikan input edit jika status isEditing bernilai true
+                enabled: !widget.isEditing,
                 decoration: InputDecoration(
                   labelText: 'Nama Makanan / Menu',
+                  // Visualisasi indikator terkunci yang halus bagi pengguna
+                  fillColor: widget.isEditing
+                      ? (isDarkMode
+                            ? Colors.white.withOpacity(0.04)
+                            : Colors.black.withOpacity(0.03))
+                      : null,
+                  filled: widget.isEditing,
                   prefixIcon: const Icon(Icons.fastfood_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -202,9 +354,17 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               TextFormField(
                 controller: calorieController,
                 keyboardType: TextInputType.number,
+                // 🟢 OPSI B IMPLEMENTASI: Matikan input edit jika status isEditing bernilai true
+                enabled: !widget.isEditing,
                 decoration: InputDecoration(
                   labelText: 'Estimasi Kalori',
                   suffixText: 'kkal',
+                  fillColor: widget.isEditing
+                      ? (isDarkMode
+                            ? Colors.white.withOpacity(0.04)
+                            : Colors.black.withOpacity(0.03))
+                      : null,
+                  filled: widget.isEditing,
                   prefixIcon: const Icon(Icons.local_fire_department_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -220,7 +380,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               ),
               const SizedBox(height: 16),
 
-              // 3. Input Bahan-Bahan
+              // 3. Input Bahan-Bahan (Tetap diizinkan untuk diedit)
               TextFormField(
                 controller: ingredientsController,
                 maxLines: 2,
@@ -247,7 +407,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               ),
               const SizedBox(height: 16),
 
-              // 4. Input Langkah Memasak
+              // 4. Input Langkah Memasak (Tetap diizinkan untuk diedit)
               TextFormField(
                 controller: instructionsController,
                 maxLines: 2,
@@ -274,7 +434,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
               ),
               const SizedBox(height: 20),
 
-              // Dropdown Pilihan Diet tunggal
+              // Dropdown Pilihan Diet (Dikunci jika dalam mode editing)
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -291,6 +451,21 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                   ),
                   child: DropdownButtonFormField<String>(
                     value: selectedSuitableDiet,
+                    // 🟢 Kunci pilihan dropdown diet jika sedang mode editing resep komunitas
+                    disabledHint: Text(
+                      selectedSuitableDiet == 'gain_muscle'
+                          ? 'Menaikkan Massa Otot'
+                          : selectedSuitableDiet == 'healthy_lifestyle'
+                          ? 'Gaya Hidup Sehat'
+                          : selectedSuitableDiet == 'keto_diet'
+                          ? 'Diet Keto'
+                          : selectedSuitableDiet == 'vegetarian'
+                          ? 'Vegetarian'
+                          : selectedSuitableDiet,
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Cocok Untuk Program Diet',
                       border: InputBorder.none,
@@ -300,32 +475,37 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                         size: 22,
                       ),
                     ),
-                    items: widget.dietOptions.map((String value) {
-                      // Kosmetik lokalisasi bahasa label dropdown di layar HP
-                      String displayLabel = value;
-                      if (value == 'gain_muscle')
-                        displayLabel = 'Menaikkan Massa Otot';
-                      if (value == 'healthy_lifestyle')
-                        displayLabel = 'Gaya Hidup Sehat';
-                      if (value == 'keto_diet') displayLabel = 'Diet Keto';
-                      if (value == 'vegetarian') displayLabel = 'Vegetarian';
+                    items: widget.isEditing
+                        ? null // Mengosongkan item dropdown agar ter-disable dengan rapi
+                        : widget.dietOptions.map((String value) {
+                            String displayLabel = value;
+                            if (value == 'gain_muscle')
+                              displayLabel = 'Menaikkan Massa Otot';
+                            if (value == 'healthy_lifestyle')
+                              displayLabel = 'Gaya Hidup Sehat';
+                            if (value == 'keto_diet')
+                              displayLabel = 'Diet Keto';
+                            if (value == 'vegetarian')
+                              displayLabel = 'Vegetarian';
 
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          displayLabel,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        selectedSuitableDiet = newValue!;
-                      });
-                    },
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(
+                                displayLabel,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                    onChanged: widget.isEditing
+                        ? null
+                        : (newValue) {
+                            setState(() {
+                              selectedSuitableDiet = newValue!;
+                            });
+                          },
                   ),
                 ),
               ),
@@ -364,11 +544,11 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                         insList,
                         selectedSuitableDiet,
                         widget.initialUnsuitable ?? 'None',
+                        _selectedImages,
                       );
                       Navigator.pop(context);
                     }
                   },
-                  // 🔥 UX DINAMIS: Label tombol berubah otomatis saat mode edit aktif
                   child: Text(
                     widget.isEditing
                         ? 'Simpan Perubahan'

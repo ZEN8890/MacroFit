@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/recipe_card.dart';
+import '../pages/public_profile_page.dart';
 
 class RecipeStreamView extends StatefulWidget {
   final String filterType;
@@ -120,18 +121,15 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                 );
               }
 
-              // 🔥 FIX UTAMA: Deklarasi tema diposisikan di dalam builder agar bisa diakses oleh komponen dropdown di bawah
               final theme = Theme.of(context);
               final isDarkMode = theme.brightness == Brightness.dark;
 
               final List<QueryDocumentSnapshot> originalDocs =
                   snapshot.data!.docs;
 
-              // Map dinamis untuk menghitung total koleksi per kategori diet yang tampil
               Map<String, int> dietCounts = {'All': 0};
               List<QueryDocumentSnapshot> baseDocs = [];
 
-              // Tahap 1: Mengumpulkan dokumen valid serta kalkulasi konter dropdown secara dinamis
               for (var doc in originalDocs) {
                 if (doc.data() == null) continue;
                 final data = doc.data() as Map<String, dynamic>;
@@ -150,20 +148,17 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                 }
               }
 
-              // Tahap 2: Saring data berdasarkan input kolom pencarian dan status klik Dropdown diet
               List<QueryDocumentSnapshot> filteredRecipes = [];
               for (var doc in baseDocs) {
                 final data = doc.data() as Map<String, dynamic>;
                 String title = (data['title'] ?? '').toString().toLowerCase();
 
-                // Saringan 1: Search Bar
                 if (widget.filterType != 'AI' &&
                     _searchQuery.isNotEmpty &&
                     !title.contains(_searchQuery)) {
                   continue;
                 }
 
-                // Saringan 2: Dropdown Kategori Diet
                 if (widget.filterType != 'AI' &&
                     widget.savedDietFilter != 'All') {
                   final suitableDiet = data['suitable_diet'] ?? 'Normal';
@@ -175,7 +170,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                 filteredRecipes.add(doc);
               }
 
-              // Pengurutan resep dari waktu terbaru
               filteredRecipes.sort((a, b) {
                 final aData = a.data() as Map<String, dynamic>?;
                 final bData = b.data() as Map<String, dynamic>?;
@@ -194,7 +188,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
 
               return Column(
                 children: [
-                  // DROPDOWN FILTER DIET DINAMIS: Muncul di semua tab kecuali AI
                   if (widget.filterType != 'AI' && dietCounts.length > 1)
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -261,7 +254,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                       ),
                     ),
 
-                  // Spanduk Informasi Khusus untuk Limit Tab Saved/Favorites
                   if (widget.filterType == 'Favorites')
                     Container(
                       width: double.infinity,
@@ -291,7 +283,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                       ),
                     ),
 
-                  // Render komponen fisik kartu-kartu resep
                   Expanded(
                     child: filteredRecipes.isEmpty
                         ? Center(
@@ -321,20 +312,44 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                                 displayType = 'AI';
                               }
 
+                              final String recipeUserId =
+                                  recipeData['userId'] ?? '';
+                              final String recipeHandle =
+                                  recipeData['username_handle'] ?? '';
+                              final String recipeAuthorName =
+                                  recipeData['username'] ?? 'User MacroFit';
+
+                              // 🟢 PERBAIKAN LOGIKA PRESISI: Deteksi Akun Owner murni via UID
+                              String authorHandle;
+                              if (displayType == 'AI') {
+                                authorHandle = 'MacroFit AI';
+                              } else if (recipeUserId == widget.currentUserId) {
+                                // 🎯 Jika resep ini dikreasi oleh kamu sendiri, paksa visualisasinya memunculkan @stvnnvts8 murni
+                                authorHandle = '@stvnnvts8';
+                              } else if (recipeHandle
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty) {
+                                // Jika resep milik user lain yang sudah memiliki field handle murni
+                                authorHandle =
+                                    '@${recipeHandle.toString().trim().toLowerCase()}';
+                              } else {
+                                // Fallback otomatis untuk resep lama milik pengguna lain
+                                String fallbackHandle = recipeAuthorName
+                                    .trim()
+                                    .toLowerCase()
+                                    .replaceAll(' ', '');
+                                authorHandle = '@$fallbackHandle';
+                              }
+
                               return RecipeCard(
                                 title:
                                     recipeData['title'] ?? 'Resep Tanpa Nama',
-                                calories: (recipeData['calories'] ?? 0)
-                                    .toString(),
+                                calories: recipeData['calories'] ?? 0,
                                 imageUrl: recipeData['image_url'],
-                                author: recipeData['username'] ?? 'User',
+                                imageKeyword: recipeData['image_keyword'],
+                                author: authorHandle,
                                 type: displayType,
-                                ingredients: List<String>.from(
-                                  recipeData['ingredients'] ?? [],
-                                ),
-                                instructions: List<String>.from(
-                                  recipeData['instructions'] ?? [],
-                                ),
                                 isSaved: savedByList.contains(
                                   widget.currentUserId,
                                 ),
@@ -344,6 +359,18 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                                 ),
                                 onTapCard: () =>
                                     widget.onTapCard(recipeData, doc.id),
+                                onTapAuthor: () {
+                                  if (recipeData['userId'] != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PublicProfilePage(
+                                          targetUserId: recipeData['userId'],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                               );
                             },
                           ),

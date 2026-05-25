@@ -19,10 +19,13 @@ class _ForumPageState extends State<ForumPage> {
   final TextEditingController _postController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  List<XFile> _selectedImages = []; // Array list penampung banyak foto
+  List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
   bool _isPosting = false;
+
+  // 🟢 POSISI STRATEGIS: Pindahkan deklarasi refresh key ke atas sasis State agar nilainya persisten dan stabil
+  String _forumRefreshKey = DateTime.now().millisecondsSinceEpoch.toString();
 
   Future<void> _pickMultiImages() async {
     final List<XFile> images = await _picker.pickMultiImage();
@@ -41,7 +44,6 @@ class _ForumPageState extends State<ForumPage> {
     setState(() => _isPosting = true);
 
     try {
-      // Proses upload paralel multiple images ke Firebase Storage
       List<String> imageUrls = [];
       if (_selectedImages.isNotEmpty) {
         imageUrls = await Future.wait(
@@ -67,19 +69,27 @@ class _ForumPageState extends State<ForumPage> {
             '';
       }
 
+      // 🟢 PERBAIKAN DI FORUM_PAGE.DART (Fungsi _createPost):
       await _firestore.collection('posts').add({
         'uid': user.uid,
-        'username': username,
+        'username': username, // Tetap simpan nama lengkap untuk backup
+        'username_handle':
+            userDoc.data()?['username_handle'] ??
+            '', // 🟢 WAJIB SIMPAN HANDLE NYA JUGA SAAT POSTING
         'profile_image': profilePic,
         'content': _postController.text.trim(),
-        'image_urls': imageUrls, // Menyimpan array string URL foto
+        'image_urls': imageUrls,
         'timestamp': FieldValue.serverTimestamp(),
         'likes': [],
         'comment_count': 0,
       });
 
       _postController.clear();
-      setState(() => _selectedImages.clear());
+      setState(() {
+        _selectedImages.clear();
+        // 🟢 SINKRONISASI: Otomatis perbarui key forum setelah sukses posting teks/foto agar tulisan langsung merandir di paling atas
+        _forumRefreshKey = DateTime.now().millisecondsSinceEpoch.toString();
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +102,7 @@ class _ForumPageState extends State<ForumPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal mengirim postingan: $e')));
       }
-    } finally {
+    } catch (e) {
       if (mounted) {
         setState(() => _isPosting = false);
       }
@@ -182,22 +192,17 @@ class _ForumPageState extends State<ForumPage> {
     }
   }
 
-  // 🔥 PERBAIKAN FUNGSIONAL: Ubah Single Picker Menjadi Multi Picker dengan Batas Maksimal 5 Foto
   Future<void> _pickImage() async {
     try {
-      // 1. Panggil pickMultiImage untuk mengizinkan user menyeleksi banyak foto sekaligus di galeri
       final List<XFile> images = await _picker.pickMultiImage();
 
       if (images.isNotEmpty) {
-        // Hitung total kombinasi foto yang sudah ada + foto yang baru dipilih
         int totalImagesNow = _selectedImages.length + images.length;
 
         if (totalImagesNow > 5) {
-          // Jika melampaui limit, hitung berapa slot sisa yang masih tersedia
           int sisaSlot = 5 - _selectedImages.length;
 
           if (sisaSlot > 0) {
-            // Ambil foto baru hanya sebanyak sisa slot yang tersedia
             setState(() {
               _selectedImages.addAll(images.take(sisaSlot));
             });
@@ -215,7 +220,6 @@ class _ForumPageState extends State<ForumPage> {
             );
           }
         } else {
-          // Jika totalnya masih di bawah atau pas 5 foto, masukkan semua tanpa potongan
           setState(() {
             _selectedImages.addAll(images);
           });
@@ -224,12 +228,6 @@ class _ForumPageState extends State<ForumPage> {
     } catch (e) {
       debugPrint("Gagal mengambil banyak foto: $e");
     }
-  }
-
-  @override
-  void dispose() {
-    _postController.dispose();
-    super.dispose();
   }
 
   @override
@@ -245,120 +243,132 @@ class _ForumPageState extends State<ForumPage> {
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: NestedScrollView(
-            headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-              return <Widget>[
-                SliverAppBar(
-                  title: const Text(
-                    "MacroFit Community",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  pinned: true,
-                  floating: true,
-                  forceElevated: innerBoxIsScrolled,
-                  backgroundColor: theme.appBarTheme.backgroundColor,
-                  foregroundColor: theme.appBarTheme.foregroundColor,
-                  elevation: 0,
-                  // 🌟 SOLUSI UTAMA 1: Tambahkan toolbarHeight dan tentukan space yang cukup
-                  // agar ketika appBar menciut/pinned, dia tidak mencekik tab bar di bawahnya.
-                  toolbarHeight: 56.0,
+            headerSliverBuilder:
+                (BuildContext context, bool innerBoxIsScrolled) {
+                  return <Widget>[
+                    SliverAppBar(
+                      title: const Text(
+                        "MacroFit Community",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      pinned: true,
+                      floating: true,
+                      forceElevated: innerBoxIsScrolled,
+                      backgroundColor: theme.appBarTheme.backgroundColor,
+                      foregroundColor: theme.appBarTheme.foregroundColor,
+                      elevation: 0,
+                      toolbarHeight: 56.0,
+                      bottom: PreferredSize(
+                        preferredSize: const Size.fromHeight(74.0),
+                        child: Material(
+                          color:
+                              theme.appBarTheme.backgroundColor ??
+                              theme.scaffoldBackgroundColor,
+                          child: TabBar(
+                            labelColor: isDarkMode
+                                ? Colors.white
+                                : theme.primaryColor,
+                            unselectedLabelColor: isDarkMode
+                                ? Colors.white38
+                                : Colors.black38,
+                            indicatorColor: theme.primaryColor,
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            tabs: const [
+                              Tab(
+                                text: 'Semua Forum',
+                                icon: Icon(Icons.forum_outlined, size: 20),
+                              ),
+                              Tab(
+                                text: 'Thread Saya',
+                                icon: Icon(
+                                  Icons.assignment_ind_outlined,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          StreamBuilder<DocumentSnapshot>(
+                            stream: _firestore
+                                .collection('users')
+                                .doc(currentUser?.uid)
+                                .snapshots(),
+                            builder: (context, userSnapshot) {
+                              String userAvatarUrl = '';
+                              if (userSnapshot.hasData &&
+                                  userSnapshot.data!.exists) {
+                                final userData =
+                                    userSnapshot.data!.data()
+                                        as Map<String, dynamic>?;
+                                userAvatarUrl =
+                                    userData?['profile_picture'] ??
+                                    userData?['profile_image_url'] ??
+                                    userData?['photoUrl'] ??
+                                    '';
+                              }
 
-                  // 🌟 SOLUSI UTAMA 2: Ubah dari 48 menjadi 74 mengikuti tinggi asli Tab + Icon
-                  bottom: PreferredSize(
-                    preferredSize: const Size.fromHeight(74.0),
-                    child: Material(
-                      color:
-                          theme.appBarTheme.backgroundColor ??
-                          theme.scaffoldBackgroundColor,
-                      child: TabBar(
-                        labelColor: isDarkMode
-                            ? Colors.white
-                            : theme.primaryColor,
-                        unselectedLabelColor: isDarkMode
-                            ? Colors.white38
-                            : Colors.black38,
-                        indicatorColor: theme.primaryColor,
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        tabs: const [
-                          Tab(
-                            text: 'Semua Forum',
-                            icon: Icon(Icons.forum_outlined, size: 20),
+                              return PostInputSection(
+                                controller: _postController,
+                                selectedImages: _selectedImages,
+                                currentUserImageUrl: userAvatarUrl,
+                                onPickImage: _pickImage,
+                                isPosting: _isPosting,
+                                onCreatePost: _createPost,
+                                onClearImage: () =>
+                                    setState(() => _selectedImages.clear()),
+                                onRemoveSpecificImage: (index) {
+                                  setState(() {
+                                    _selectedImages.removeAt(index);
+                                  });
+                                },
+                              );
+                            },
                           ),
-                          Tab(
-                            text: 'Thread Saya',
-                            icon: Icon(Icons.assignment_ind_outlined, size: 20),
-                          ),
+                          const Divider(thickness: 1, height: 1),
                         ],
                       ),
                     ),
+                  ];
+                },
+            body: RefreshIndicator(
+              color: theme.primaryColor,
+              onRefresh: () async {
+                await Future.delayed(const Duration(milliseconds: 800));
+                if (mounted) {
+                  setState(() {
+                    _forumRefreshKey = DateTime.now().millisecondsSinceEpoch
+                        .toString();
+                  });
+                }
+              },
+              child: TabBarView(
+                children: [
+                  PostListStream(
+                    key: ValueKey('all_forum_stream_$_forumRefreshKey'),
+                    filterUid: null,
+                    firestore: _firestore,
+                    auth: _auth,
+                    onDeletePost: _deletePost,
+                    onLikeToggle: _toggleLike,
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Gunakan StreamBuilder/FutureBuilder ringan jika ingin realtime, atau baca langsung data profile yang sudah ada
-                      StreamBuilder<DocumentSnapshot>(
-                        stream: _firestore
-                            .collection('users')
-                            .doc(currentUser?.uid)
-                            .snapshots(),
-                        builder: (context, userSnapshot) {
-                          String userAvatarUrl = '';
-                          if (userSnapshot.hasData &&
-                              userSnapshot.data!.exists) {
-                            final userData =
-                                userSnapshot.data!.data()
-                                    as Map<String, dynamic>?;
-                            userAvatarUrl =
-                                userData?['profile_picture'] ??
-                                userData?['profile_image_url'] ??
-                                userData?['photoUrl'] ??
-                                '';
-                          }
-
-                          return PostInputSection(
-                            controller: _postController,
-                            // 🔥 1. PREVIEW MULTI-IMAGE: Oper seluruh list agar bisa dirender menyamping
-                            selectedImages: _selectedImages,
-                            // 🔥 2. FOTO PROFIL AKTIF: Berikan URL foto profil user saat ini
-                            currentUserImageUrl: userAvatarUrl,
-                            onPickImage: _pickImage,
-                            isPosting: _isPosting,
-                            onCreatePost: _createPost,
-                            onClearImage: () =>
-                                setState(() => _selectedImages.clear()),
-                            // Fungsi hapus satu foto tertentu di baris preview
-                            onRemoveSpecificImage: (index) {
-                              setState(() {
-                                _selectedImages.removeAt(index);
-                              });
-                            },
-                          );
-                        },
-                      ),
-                      const Divider(thickness: 1, height: 1),
-                    ],
+                  PostListStream(
+                    key: ValueKey(
+                      'my_forum_stream_${currentUser?.uid}_$_forumRefreshKey',
+                    ),
+                    filterUid: currentUser?.uid,
+                    firestore: _firestore,
+                    auth: _auth,
+                    onDeletePost: _deletePost,
+                    onLikeToggle: _toggleLike,
                   ),
-                ),
-              ];
-            },
-            body: TabBarView(
-              children: [
-                PostListStream(
-                  filterUid: null,
-                  firestore: _firestore,
-                  auth: _auth,
-                  onDeletePost: _deletePost,
-                  onLikeToggle: _toggleLike,
-                ),
-                PostListStream(
-                  filterUid: currentUser?.uid,
-                  firestore: _firestore,
-                  auth: _auth,
-                  onDeletePost: _deletePost,
-                  onLikeToggle: _toggleLike,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

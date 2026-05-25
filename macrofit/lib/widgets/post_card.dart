@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../pages/comment_page.dart';
+import '../pages/image_preview_page.dart';
+import '../pages/public_profile_page.dart'; // 🟢 TAMBAHKAN IMPORT PROFIL PUBLIK
 
 class PostCard extends StatelessWidget {
   final String postId;
   final String username;
   final String content;
-  // 🔥 PERBAIKAN STRUCTURAL: Ubah String tunggal menjadi List untuk menampung multi-image URL
   final List<dynamic>? imageUrls;
   final String? profileImage;
   final List<dynamic> likes;
@@ -23,7 +24,7 @@ class PostCard extends StatelessWidget {
     required this.postId,
     required this.username,
     required this.content,
-    required this.imageUrls, // 🔥 Diubah menerima list array dari database
+    required this.imageUrls,
     this.profileImage,
     required this.likes,
     required this.commentCount,
@@ -42,8 +43,9 @@ class PostCard extends StatelessWidget {
     Duration difference = nowDate.difference(postDate);
 
     if (difference.inSeconds < 60) return 'Baru saja';
-    if (difference.inMinutes < 60)
+    if (difference.inMinutes < 60) {
       return '${difference.inMinutes} menit yang lalu';
+    }
     if (difference.inHours < 24) return '${difference.inHours} jam yang lalu';
     return '${postDate.day}/${postDate.month}/${postDate.year}';
   }
@@ -71,32 +73,45 @@ class PostCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: theme.primaryColor.withOpacity(0.15),
-                      backgroundImage:
-                          (profileImage != null && profileImage!.isNotEmpty)
-                          ? NetworkImage(profileImage!)
-                          : null,
-                      child: (profileImage == null || profileImage!.isEmpty)
-                          ? Icon(
-                              Icons.person,
-                              size: 18,
-                              color: theme.primaryColor,
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      username,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                // 🟢 PERBAIKAN UTAMA: Bungkus baris Avatar & Nama dengan GestureDetector
+                GestureDetector(
+                  onTap: () {
+                    // Berpindah ke halaman profil publik berdasarkan UID pembuat thread postingan
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            PublicProfilePage(targetUserId: postUid),
                       ),
-                    ),
-                  ],
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: theme.primaryColor.withOpacity(0.15),
+                        backgroundImage:
+                            (profileImage != null && profileImage!.isNotEmpty)
+                            ? NetworkImage(profileImage!)
+                            : null,
+                        child: (profileImage == null || profileImage!.isEmpty)
+                            ? Icon(
+                                Icons.person,
+                                size: 18,
+                                color: theme.primaryColor,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        username,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   children: [
@@ -131,12 +146,12 @@ class PostCard extends StatelessWidget {
               ),
             ),
 
-            // 🔥 MULTI-IMAGE CAROUSEL SECTION (Menggunakan PageView Horizontal)
+            // MULTI-IMAGE CAROUSEL SECTION
             if (imageUrls != null && imageUrls!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 12.0),
                 child: SizedBox(
-                  height: 230, // Tinggi area postingan foto
+                  height: 230,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: PageView.builder(
@@ -145,22 +160,38 @@ class PostCard extends StatelessWidget {
                       itemBuilder: (context, index) {
                         return Stack(
                           children: [
-                            Image.network(
-                              imageUrls![index].toString(),
-                              height: 230,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    );
-                                  },
+                            GestureDetector(
+                              onTap: () {
+                                List<String> cleanUrls = imageUrls!
+                                    .map((e) => e.toString())
+                                    .toList();
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ImagePreviewPage(
+                                      imageUrls: cleanUrls,
+                                      initialIndex: index,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Image.network(
+                                imageUrls![index].toString(),
+                                height: 230,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      );
+                                    },
+                              ),
                             ),
-                            // Indikator angka foto di pojok kanan atas jika foto lebih dari 1 (Contoh: 1/3)
                             if (imageUrls!.length > 1)
                               Positioned(
                                 top: 12,

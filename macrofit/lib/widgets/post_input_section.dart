@@ -11,6 +11,7 @@ class PostInputSection extends StatelessWidget {
   final VoidCallback onCreatePost;
   final VoidCallback onClearImage;
   final Function(int index) onRemoveSpecificImage;
+  final FocusNode? focusNode; // Tambahkan di atas
 
   const PostInputSection({
     super.key,
@@ -22,6 +23,7 @@ class PostInputSection extends StatelessWidget {
     required this.onCreatePost,
     required this.onClearImage,
     required this.onRemoveSpecificImage,
+    this.focusNode,
   });
 
   @override

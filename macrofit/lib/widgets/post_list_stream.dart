@@ -47,19 +47,16 @@ class PostListStream extends StatelessWidget {
 
         final posts = snapshot.data!.docs;
 
-        // === TIMPA BAGIAN ITEMBUILDER DI DALAM LISTVIEW.BUILDER POST_LIST_STREAM.DART ===
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 80),
           shrinkWrap: true,
-          physics:
-              const NeverScrollableScrollPhysics(), // Mematikan scroll internal agar layout NestedScrollView lancar
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: posts.length,
           itemBuilder: (context, index) {
-            // 🔥 1. DEKLARASIKAN VARIABEL UTAMA DI SINI TERLEBIH DAHULU
             final doc = posts[index];
             final data = doc.data() as Map<String, dynamic>;
 
-            // 🔥 2. JEMBATAN KONVERSI DATA IMAGE MULTI-URL (Aman dari data lawas/baru)
+            // JEMBATAN KONVERSI DATA IMAGE MULTI-URL (Aman dari data lawas/baru)
             final List<dynamic> currentImageUrls = data['image_urls'] is List
                 ? data['image_urls']
                 : (data['image_url'] != null &&
@@ -67,20 +64,39 @@ class PostListStream extends StatelessWidget {
                       ? [data['image_url']]
                       : []);
 
-            // 🔥 3. KEMBALIKAN KOMPONEN POSTCARD YANG SUDAH TERHUBUNG SEMPURNA
+            final String postUid = data['uid'] ?? '';
+            final String handle = data['username_handle'] ?? '';
+            final String fullName = data['username'] ?? 'User MacroFit';
+
+            // 🟢 PERBAIKAN AKURAT: Utamakan deteksi kecocokan UID Akun Kamu
+            String displayName;
+            if (postUid == auth.currentUser?.uid) {
+              // 🎯 Jika ini postingan milikmu, paksa tampilkan username @stvnnvts8 murni
+              displayName = '@stvnnvts8';
+            } else if (handle.toString().trim().isNotEmpty) {
+              // Jika postingan milik user lain yang sudah memiliki field handle asli
+              displayName = '@${handle.toString().trim().toLowerCase()}';
+            } else {
+              // Fallback untuk postingan user lain yang lama (belum punya handle)
+              String cleanHandle = fullName.trim().toLowerCase().replaceAll(
+                ' ',
+                '',
+              );
+              displayName = '@$cleanHandle';
+            }
+
             return PostCard(
               postId: doc.id,
-              username: data['username'] ?? 'User MacroFit',
+              username: displayName,
               content: data['content'] ?? '',
-              imageUrls:
-                  currentImageUrls, // Menggunakan variabel jembatan currentImageUrls
+              imageUrls: currentImageUrls,
               profileImage: data['profile_image'] ?? '',
               likes: data['likes'] ?? [],
               commentCount: data['comment_count'] ?? 0,
               isLiked: (data['likes'] ?? []).contains(auth.currentUser?.uid),
-              postUid: data['uid'] ?? '',
+              postUid: postUid,
               timestamp: data['timestamp'] as Timestamp?,
-              isOwner: (data['uid'] ?? '') == auth.currentUser?.uid,
+              isOwner: postUid == auth.currentUser?.uid,
               onDelete: () => onDeletePost(doc.id, data['image_url']),
               onLikeToggle: () => onLikeToggle(doc.id, data['likes'] ?? []),
             );

@@ -17,8 +17,6 @@ class RestaurantPage extends StatefulWidget {
 class _RestaurantPageState extends State<RestaurantPage> {
   final LocationService _locationService = LocationService();
   final RestaurantServices _restaurantServices = RestaurantServices();
-
-  // 🔥 SOLUSI ERROR UNDEFINED: Daftarkan instance AI Service di sini
   final AIRecommendationService _aiService = AIRecommendationService();
 
   List<Map<String, dynamic>> _dynamicRestaurants = [];
@@ -38,9 +36,8 @@ class _RestaurantPageState extends State<RestaurantPage> {
     });
 
     try {
-      // A. Ambil Target Kalori User dari Firestore secara real-time
       final user = FirebaseAuth.instance.currentUser;
-      double userTargetCalorie = 2000; // Default jika data tidak ditemukan
+      double userTargetCalorie = 2000;
 
       if (user != null) {
         var userDoc = await FirebaseFirestore.instance
@@ -53,43 +50,34 @@ class _RestaurantPageState extends State<RestaurantPage> {
         }
       }
 
-      // Tentukan status tipe diet berdasarkan target kalori (Konsep Rekomendasi Pintar Skripsi)
       bool isBulking = userTargetCalorie > 2800;
 
-      // 1. Ambil koordinat GPS HP asli via LocationService Anda
       Position position = await _locationService.getCurrentLocation();
       double lat = position.latitude;
       double lng = position.longitude;
 
-      // 2. Panggil Google Places API melalui file service baru Anda
       final List<Map<String, dynamic>> googleRawResults =
           await _restaurantServices.fetchRestaurantsFromGoogle(lat, lng);
 
-      // 3. TEMBAK AI SECARA MASSAL UNTUK MENANDAI RESTORAN YANG COCOK
-      final List<dynamic>
-      aiAnalysisList = await _aiService.filterRestaurantListAI(
-        rawGoogleRestaurants: googleRawResults,
-        // PERBAIKAN: Nilai di bawah ini sekarang dinamis mengikuti data Firestore user, bukan hardcoded 2500 lagi
-        userTargetCalorie: userTargetCalorie,
-        isBulking: isBulking,
-      );
+      final List<dynamic> aiAnalysisList = await _aiService
+          .filterRestaurantListAI(
+            rawGoogleRestaurants: googleRawResults,
+            userTargetCalorie: userTargetCalorie,
+            isBulking: isBulking,
+          );
 
       List<Map<String, dynamic>> tempRestaurants = [];
 
-      // 4. Masukkan data ke UI List dengan tanda dari AI Gemini
       for (var element in googleRawResults) {
         double resRating = element['rating'] ?? 0.0;
         int totalReviews = element['user_ratings_total'] ?? 0;
 
-        // Filter dasar keaslian rating (tetap dipertahankan agar terbebas dari tempat abal-abal)
         if (resRating >= 4.0 && totalReviews > 10) {
-          // MENCARI HASIL ANALISIS AI UNTUK RESTORAN INI
           final aiMatch = aiAnalysisList.firstWhere(
             (aiRes) => aiRes['place_id'] == element['place_id'],
             orElse: () => null,
           );
 
-          // Ambil keputusan dari otak AI Gemini 3.1 Flash Lite
           bool isHighlyRecommended = aiMatch != null
               ? (aiMatch['is_suitable'] ?? false)
               : false;
@@ -109,28 +97,24 @@ class _RestaurantPageState extends State<RestaurantPage> {
           tempRestaurants.add({
             'name': element['name'],
             'type': element['type'],
-            'diet_type': dietTag, // Menggunakan tag cerdas buatan AI Gemini
+            'diet_type': dietTag,
             'distance': distanceInMeters / 1000,
             'rating': resRating,
             'lat': resLat,
             'lng': resLng,
-            'recommended':
-                isHighlyRecommended, // Menandai restoran yang lolos sensor diet AI
+            'recommended': isHighlyRecommended,
             'place_id': element['place_id'],
             'address': element['address'] ?? 'Alamat tidak tersedia',
           });
         }
       }
 
-      // 5. PERBAIKAN SORTING: Prioritaskan yang direkomendasikan AI (true didepan), lalu urutkan jarak terdekat
       tempRestaurants.sort((a, b) {
         if (a['recommended'] == true && b['recommended'] == false) return -1;
         if (a['recommended'] == false && b['recommended'] == true) return 1;
-        // Jika status rekomendasinya sama, urutkan berdasarkan yang jaraknya paling dekat
         return (a['distance'] as double).compareTo(b['distance'] as double);
       });
 
-      // 🔥 PERBAIKAN: Cek apakah widget masih aktif di layar sebelum memanggil setState
       if (!mounted) return;
 
       setState(() {
@@ -138,7 +122,6 @@ class _RestaurantPageState extends State<RestaurantPage> {
         _isLoading = false;
       });
     } catch (e) {
-      // 🔥 PERBAIKAN: Lakukan proteksi yang sama pada catch error block
       if (!mounted) return;
 
       setState(() {
@@ -151,6 +134,7 @@ class _RestaurantPageState extends State<RestaurantPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -158,13 +142,9 @@ class _RestaurantPageState extends State<RestaurantPage> {
           "Restoran Terdekat (Google API)",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchNearbyRestaurants,
-          ),
-        ],
+        // 🟢 OPTIMASI: Tombol refresh lama di AppBar resmi DIHAPUS agar UI konsisten ditarik
       ),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _isLoading
           ? const Center(
               child: Column(
@@ -206,20 +186,39 @@ class _RestaurantPageState extends State<RestaurantPage> {
               ),
             )
           : _dynamicRestaurants.isEmpty
-          ? const Center(
-              child: Text(
-                "Tidak ada tempat makan terdeteksi dalam radius 3 km.",
+          // 🟢 OPTIMASI STATE KOSONG: Dibungkus SingleChildScrollView + AlwaysScrollableScrollPhysics agar layar kosong pun tetap bisa ditarik ke bawah untuk refresh data
+          ? RefreshIndicator(
+              color: theme.primaryColor,
+              onRefresh: _fetchNearbyRestaurants,
+              child: const SingleChildScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: 300,
+                  child: Center(
+                    child: Text(
+                      "Tidak ada tempat makan terdeteksi dalam radius 3 km.",
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: _dynamicRestaurants.length,
-              itemBuilder: (context, index) {
-                final res = _dynamicRestaurants[index];
-                double distance = res['distance'] ?? 0.0;
+          // 🟢 OPTIMASI LIST VIEW KONSISTEN: Tarik ke bawah langsung menembus koordinat GPS & hitung ulang diet AI Gemini terbaru
+          : RefreshIndicator(
+              color: theme.primaryColor,
+              onRefresh: _fetchNearbyRestaurants,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(20),
+                physics:
+                    const AlwaysScrollableScrollPhysics(), // Pengunci kekenyalan tarikan gesture
+                itemCount: _dynamicRestaurants.length,
+                itemBuilder: (context, index) {
+                  final res = _dynamicRestaurants[index];
+                  double distance = res['distance'] ?? 0.0;
 
-                return RestaurantCard(restaurant: res, distance: distance);
-              },
+                  return RestaurantCard(restaurant: res, distance: distance);
+                },
+              ),
             ),
     );
   }
