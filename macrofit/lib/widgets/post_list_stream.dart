@@ -24,6 +24,7 @@ class PostListStream extends StatelessWidget {
     Query query = firestore
         .collection('posts')
         .orderBy('timestamp', descending: true);
+
     if (filterUid != null) {
       query = query.where('uid', isEqualTo: filterUid);
     }
@@ -65,25 +66,18 @@ class PostListStream extends StatelessWidget {
                       : []);
 
             final String postUid = data['uid'] ?? '';
-            final String handle = data['username_handle'] ?? '';
-            final String fullName = data['username'] ?? 'User MacroFit';
 
-            // 🟢 PERBAIKAN AKURAT: Utamakan deteksi kecocokan UID Akun Kamu
-            String displayName;
-            if (postUid == auth.currentUser?.uid) {
-              // 🎯 Jika ini postingan milikmu, paksa tampilkan username @stvnnvts8 murni
-              displayName = '@stvnnvts8';
-            } else if (handle.toString().trim().isNotEmpty) {
-              // Jika postingan milik user lain yang sudah memiliki field handle asli
-              displayName = '@${handle.toString().trim().toLowerCase()}';
-            } else {
-              // Fallback untuk postingan user lain yang lama (belum punya handle)
-              String cleanHandle = fullName.trim().toLowerCase().replaceAll(
-                ' ',
-                '',
-              );
-              displayName = '@$cleanHandle';
-            }
+            // 🟢 LOGIKA DYNAMIC HANDLE:
+            // Mengambil handle langsung dari Firestore tanpa hardcoding UID.
+            // Jika tidak ada handle, kita buat dari nama lengkap.
+            final String rawHandle =
+                data['username_handle']?.toString().trim() ?? '';
+            final String fullName =
+                data['username']?.toString().trim() ?? 'User MacroFit';
+
+            final String displayName = rawHandle.isNotEmpty
+                ? '@${rawHandle.toLowerCase()}'
+                : '@user';
 
             return PostCard(
               postId: doc.id,

@@ -1,8 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/comment_card.dart';
@@ -33,7 +33,8 @@ class _CommentPageState extends State<CommentPage> {
 
   List<XFile> _selectedCommentImages = [];
   bool _isCommentPosting = false;
-  String? _editingCommentId; // 🟢 STATE PENGATUR MODE EDIT
+  String? _editingCommentId;
+  String? _replyToParentId;
 
   @override
   void dispose() {
@@ -42,28 +43,6 @@ class _CommentPageState extends State<CommentPage> {
     super.dispose();
   }
 
-  Future<void> _pickCommentImages() async {
-    try {
-      final List<XFile> images = await _picker.pickMultiImage();
-      if (images.isNotEmpty) {
-        int total = _selectedCommentImages.length + images.length;
-        if (total > 3) {
-          int sisa = 3 - _selectedCommentImages.length;
-          if (sisa > 0)
-            setState(() => _selectedCommentImages.addAll(images.take(sisa)));
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('⚠️ Maksimal 3 foto!')));
-        } else {
-          setState(() => _selectedCommentImages.addAll(images));
-        }
-      }
-    } catch (e) {
-      debugPrint("Gagal mengambil foto: $e");
-    }
-  }
-
-  // 🟢 LOGIKA SUBMIT KOMBINASI (TAMBAH & EDIT)
   Future<void> _submitComment() async {
     if (_commentController.text.trim().isEmpty &&
         _selectedCommentImages.isEmpty)
@@ -74,7 +53,6 @@ class _CommentPageState extends State<CommentPage> {
     setState(() => _isCommentPosting = true);
 
     try {
-      // --- MODE EDIT (Update) ---
       if (_editingCommentId != null) {
         await _firestore
             .collection('posts')
@@ -85,10 +63,7 @@ class _CommentPageState extends State<CommentPage> {
               'content': _commentController.text.trim(),
               'is_edited': true,
             });
-        _editingCommentId = null; // Reset mode
-      }
-      // --- MODE TAMBAH BARU (Create) ---
-      else {
+      } else {
         List<String> uploadedImageUrls = [];
         if (_selectedCommentImages.isNotEmpty) {
           uploadedImageUrls = await Future.wait(
@@ -102,18 +77,23 @@ class _CommentPageState extends State<CommentPage> {
             .collection('users')
             .doc(user.uid)
             .get();
+        final userData = userDoc.data();
+
         await _firestore
             .collection('posts')
             .doc(widget.postId)
             .collection('comments')
             .add({
               'uid': user.uid,
-              'username': userDoc.data()?['username'] ?? 'User MacroFit',
-              'username_handle': userDoc.data()?['username_handle'] ?? '',
-              'profile_image': userDoc.data()?['profile_picture'] ?? '',
+              'parent_id': _replyToParentId,
+              'postId_reference': widget.postId,
+              'username': userData?['username'] ?? 'User',
+              'username_handle': userData?['username_handle'] ?? '',
+              'profile_image': userData?['profile_picture'] ?? '',
               'content': _commentController.text.trim(),
               'image_urls': uploadedImageUrls,
               'timestamp': FieldValue.serverTimestamp(),
+              'is_edited': false,
             });
 
         await _firestore.collection('posts').doc(widget.postId).update({
@@ -122,145 +102,166 @@ class _CommentPageState extends State<CommentPage> {
       }
 
       _commentController.clear();
-      setState(() => _selectedCommentImages.clear());
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _editingCommentId == null
-                  ? 'Balasan terkirim!'
-                  : 'Pesan diperbarui',
-            ),
-          ),
-        );
-      }
+      setState(() {
+        _selectedCommentImages.clear();
+        _editingCommentId = null;
+        _replyToParentId = null;
+      });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
     } finally {
       if (mounted) setState(() => _isCommentPosting = false);
     }
   }
 
-  Future<void> _unsendComment(
-    String commentId,
-    List<dynamic>? imageUrls,
-  ) async {
-    // Implementasi unsend dengan dialog konfirmasi seperti kode sebelumnya...
-    // (Penting: Hapus juga file dari Storage jika ada)
-  }
-
-  void _editComment(String commentId, String currentContent) {
+  void _triggerReply(String targetHandle, String commentId) {
     setState(() {
-      _editingCommentId = commentId;
-      _commentController.text = currentContent;
-    });
-    FocusScope.of(context).requestFocus(_inputFocusNode);
-  }
-
-  void _triggerReply(String targetUsername) {
-    setState(() {
-      _commentController.text = "@$targetUsername ";
+      _replyToParentId = commentId;
+      _commentController.text = "@${targetHandle.replaceAll('@', '')} ";
       _commentController.selection = TextSelection.fromPosition(
         TextPosition(offset: _commentController.text.length),
       );
     });
-    FocusScope.of(context).requestFocus(_inputFocusNode);
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) FocusScope.of(context).requestFocus(_inputFocusNode);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = _auth.currentUser;
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor =
+        theme.textTheme.bodyMedium?.color ??
+        (isDarkMode ? Colors.white : Colors.black87);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _editingCommentId != null ? 'Edit Balasan' : 'Balasan Thread',
-        ),
+        title: Text(_editingCommentId != null ? 'Edit Komentar' : 'Balasan'),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              color: isDarkMode ? const Color(0xFF161616) : Colors.grey[100],
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(color: textColor),
                 children: [
-                  Text(
-                    widget.postUsername,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal,
-                    ),
+                  TextSpan(
+                    text: "${widget.postUsername} ",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(widget.postContent),
+                  TextSpan(text: widget.postContent),
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('posts')
-                    .doc(widget.postId)
-                    .collection('comments')
-                    .orderBy('timestamp')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData)
-                    return const Center(child: CircularProgressIndicator());
-                  final comments = snapshot.data!.docs;
-                  return ListView.builder(
-                    itemCount: comments.length,
-                    itemBuilder: (context, index) {
-                      final doc = comments[index];
-                      return CommentCard(
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('posts')
+                  .doc(widget.postId)
+                  .collection('comments')
+                  .orderBy('timestamp', descending: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData)
+                  return const Center(child: CircularProgressIndicator());
+
+                final allDocs = snapshot.data!.docs;
+
+                // Mengurutkan komentar agar balasan selalu ada di bawah induknya
+                // Logika: Induk muncul duluan, lalu anaknya (Level 2), lalu anaknya (Level 3)
+                final List<QueryDocumentSnapshot> sortedDocs = [];
+                final parents = allDocs
+                    .where((d) => (d.data() as Map)['parent_id'] == null)
+                    .toList();
+
+                for (var p in parents) {
+                  sortedDocs.add(p);
+                  sortedDocs.addAll(
+                    allDocs.where(
+                      (d) => (d.data() as Map)['parent_id'] == p.id,
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: sortedDocs.length,
+                  itemBuilder: (_, index) {
+                    final doc = sortedDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final bool isReply =
+                        data['parent_id'] != null &&
+                        data['parent_id'].toString().isNotEmpty;
+
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        left: isReply ? 48.0 : 0.0,
+                        bottom: 4.0,
+                      ),
+                      child: CommentCard(
                         commentId: doc.id,
-                        commentData: doc.data() as Map<String, dynamic>,
-                        currentUserId: currentUser?.uid ?? '',
+                        postId: widget.postId,
+                        commentData: data,
+                        currentUserId: _auth.currentUser?.uid ?? '',
                         theme: theme,
                         isDarkMode: isDarkMode,
-                        onEdit: _editComment,
-                        onUnsend: _unsendComment,
-                        onReplyTrigger: _triggerReply,
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            StreamBuilder<DocumentSnapshot>(
-              stream: _firestore
-                  .collection('users')
-                  .doc(currentUser?.uid)
-                  .snapshots(),
-              builder: (context, snap) {
-                String pic = snap.hasData && snap.data!.exists
-                    ? (snap.data!.data() as Map)['profile_picture'] ?? ''
-                    : '';
-                return PostInputSection(
-                  controller: _commentController,
-                  focusNode: _inputFocusNode,
-                  selectedImages: _selectedCommentImages,
-                  currentUserImageUrl: pic,
-                  onPickImage: _pickCommentImages,
-                  isPosting: _isCommentPosting,
-                  onCreatePost: _submitComment,
-                  onClearImage: () =>
-                      setState(() => _selectedCommentImages.clear()),
-                  onRemoveSpecificImage: (i) =>
-                      setState(() => _selectedCommentImages.removeAt(i)),
+                        isRepliesHidden: false,
+                        onToggleHideReplies: () {},
+                        onEdit: (id, content) => setState(() {
+                          _editingCommentId = id;
+                          _commentController.text = content;
+                          FocusScope.of(context).requestFocus(_inputFocusNode);
+                        }),
+                        onUnsend: (id, _) {},
+                        onReplyTrigger: (handle) =>
+                            _triggerReply(handle, doc.id),
+                      ),
+                    );
+                  },
                 );
               },
             ),
-          ],
-        ),
+          ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: _firestore
+                .collection('users')
+                .doc(_auth.currentUser?.uid)
+                .snapshots(),
+            builder: (context, snap) {
+              String pic = (snap.hasData && snap.data!.exists)
+                  ? (snap.data!.data() as Map)['profile_picture'] ?? ''
+                  : '';
+              return PostInputSection(
+                controller: _commentController,
+                focusNode: _inputFocusNode,
+                selectedImages: _selectedCommentImages,
+                currentUserImageUrl: pic,
+                onPickImage: () async {
+                  final List<XFile> images = await _picker.pickMultiImage();
+                  if (images.isNotEmpty)
+                    setState(
+                      () => _selectedCommentImages.addAll(
+                        images.take(3 - _selectedCommentImages.length),
+                      ),
+                    );
+                },
+                isPosting: _isCommentPosting,
+                onCreatePost: _submitComment,
+                onClearImage: () =>
+                    setState(() => _selectedCommentImages.clear()),
+                onRemoveSpecificImage: (i) =>
+                    setState(() => _selectedCommentImages.removeAt(i)),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

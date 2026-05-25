@@ -1,25 +1,24 @@
-// user_model.dart
-
-//data model user
 class UserModel {
   final String uid;
   final String firstName;
   final String lastName;
   final String email;
+  final String? usernameHandle; // Tambahkan field ini
 
   int dailyCalorieTarget;
-  double? weight; // dalam kg
-  double? height; // dalam cm
+  double? weight;
+  double? height;
   int? age;
-  String? gender; // 'pria' atau 'wanita'
-  String? activityLevel; // sedentary, light, moderate, active
-  String? bodyGoal; // lose, maintain, gain
+  String? gender;
+  String? activityLevel;
+  String? bodyGoal;
 
   UserModel({
     required this.uid,
     required this.firstName,
     required this.lastName,
     required this.email,
+    this.usernameHandle,
     this.dailyCalorieTarget = 0,
     this.weight,
     this.height,
@@ -29,13 +28,18 @@ class UserModel {
     this.bodyGoal,
   });
 
-  // Mengubah data ke Map untuk dikirim ke Firestore
+  // Helper untuk mendapatkan display name yang rapi
+  String get displayName => usernameHandle != null && usernameHandle!.isNotEmpty
+      ? '@${usernameHandle!.toLowerCase()}'
+      : '@${firstName.toLowerCase()}${lastName.toLowerCase()}';
+
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
+      'username_handle': usernameHandle,
       'daily_calorie_target': dailyCalorieTarget,
       'weight': weight,
       'height': height,
@@ -46,13 +50,13 @@ class UserModel {
     };
   }
 
-  // Factory untuk mengambil data dari Firestore (Map to Object)
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: map['uid'] ?? '',
       firstName: map['first_name'] ?? '',
       lastName: map['last_name'] ?? '',
       email: map['email'] ?? '',
+      usernameHandle: map['username_handle'],
       dailyCalorieTarget: map['daily_calorie_target'] ?? 0,
       weight: (map['weight'] as num?)?.toDouble(),
       height: (map['height'] as num?)?.toDouble(),

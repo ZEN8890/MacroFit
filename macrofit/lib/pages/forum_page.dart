@@ -24,17 +24,7 @@ class _ForumPageState extends State<ForumPage> {
   final StorageService _storageService = StorageService();
   bool _isPosting = false;
 
-  // 🟢 POSISI STRATEGIS: Pindahkan deklarasi refresh key ke atas sasis State agar nilainya persisten dan stabil
   String _forumRefreshKey = DateTime.now().millisecondsSinceEpoch.toString();
-
-  Future<void> _pickMultiImages() async {
-    final List<XFile> images = await _picker.pickMultiImage();
-    if (images.isNotEmpty) {
-      setState(() {
-        _selectedImages.addAll(images);
-      });
-    }
-  }
 
   Future<void> _createPost() async {
     if (_postController.text.trim().isEmpty && _selectedImages.isEmpty) return;
@@ -53,13 +43,15 @@ class _ForumPageState extends State<ForumPage> {
         );
       }
 
+      // Ambil data user untuk memastikan handle terbaru
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final userData = userDoc.data();
 
       String username = 'User MacroFit';
       String profilePic = '';
+      String handle = '';
 
-      if (userDoc.exists && userDoc.data() != null) {
-        final userData = userDoc.data() as Map<String, dynamic>;
+      if (userDoc.exists && userData != null) {
         username =
             userData['username'] ?? userData['displayName'] ?? 'User MacroFit';
         profilePic =
@@ -67,15 +59,14 @@ class _ForumPageState extends State<ForumPage> {
             userData['profile_image_url'] ??
             userData['photoUrl'] ??
             '';
+        handle = userData['username_handle'] ?? '';
       }
 
-      // 🟢 PERBAIKAN DI FORUM_PAGE.DART (Fungsi _createPost):
+      // Menyimpan data postingan beserta handle dinamis
       await _firestore.collection('posts').add({
         'uid': user.uid,
-        'username': username, // Tetap simpan nama lengkap untuk backup
-        'username_handle':
-            userDoc.data()?['username_handle'] ??
-            '', // 🟢 WAJIB SIMPAN HANDLE NYA JUGA SAAT POSTING
+        'username': username,
+        'username_handle': handle,
         'profile_image': profilePic,
         'content': _postController.text.trim(),
         'image_urls': imageUrls,
@@ -87,24 +78,22 @@ class _ForumPageState extends State<ForumPage> {
       _postController.clear();
       setState(() {
         _selectedImages.clear();
-        // 🟢 SINKRONISASI: Otomatis perbarui key forum setelah sukses posting teks/foto agar tulisan langsung merandir di paling atas
         _forumRefreshKey = DateTime.now().millisecondsSinceEpoch.toString();
+        _isPosting = false;
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thread foto berhasil dibagikan!')),
+          const SnackBar(content: Text('Thread berhasil dibagikan!')),
         );
       }
     } catch (e) {
+      debugPrint("Error creating post: $e");
       if (mounted) {
+        setState(() => _isPosting = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal mengirim postingan: $e')));
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isPosting = false);
       }
     }
   }
@@ -147,20 +136,11 @@ class _ForumPageState extends State<ForumPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text(
-                  'Batal',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                child: const Text('Batal'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Hapus',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -174,59 +154,37 @@ class _ForumPageState extends State<ForumPage> {
         try {
           await FirebaseStorage.instance.refFromURL(imageUrl).delete();
         } catch (e) {
-          debugPrint("Gagal hapus image di storage: $e");
+          debugPrint("Gagal hapus image: $e");
         }
       }
       await _firestore.collection('posts').doc(postId).delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thread berhasil dihapus.')),
-        );
-      }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Gagal menghapus thread: $e')));
-      }
+        ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
     }
   }
 
   Future<void> _pickImage() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
-
       if (images.isNotEmpty) {
-        int totalImagesNow = _selectedImages.length + images.length;
-
-        if (totalImagesNow > 5) {
-          int sisaSlot = 5 - _selectedImages.length;
-
-          if (sisaSlot > 0) {
-            setState(() {
-              _selectedImages.addAll(images.take(sisaSlot));
-            });
-          }
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  '⚠️ Batas maksimal adalah 5 foto! Foto selebihnya otomatis diabaikan.',
-                ),
-                backgroundColor: Colors.amber,
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
+        int total = _selectedImages.length + images.length;
+        if (total > 5) {
+          int sisa = 5 - _selectedImages.length;
+          if (sisa > 0)
+            setState(() => _selectedImages.addAll(images.take(sisa)));
+          if (mounted)
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Maksimal 5 foto!')));
         } else {
-          setState(() {
-            _selectedImages.addAll(images);
-          });
+          setState(() => _selectedImages.addAll(images));
         }
       }
     } catch (e) {
-      debugPrint("Gagal mengambil banyak foto: $e");
+      debugPrint("Gagal ambil foto: $e");
     }
   }
 
@@ -239,136 +197,77 @@ class _ForumPageState extends State<ForumPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
           child: NestedScrollView(
-            headerSliverBuilder:
-                (BuildContext context, bool innerBoxIsScrolled) {
-                  return <Widget>[
-                    SliverAppBar(
-                      title: const Text(
-                        "MacroFit Community",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      pinned: true,
-                      floating: true,
-                      forceElevated: innerBoxIsScrolled,
-                      backgroundColor: theme.appBarTheme.backgroundColor,
-                      foregroundColor: theme.appBarTheme.foregroundColor,
-                      elevation: 0,
-                      toolbarHeight: 56.0,
-                      bottom: PreferredSize(
-                        preferredSize: const Size.fromHeight(74.0),
-                        child: Material(
-                          color:
-                              theme.appBarTheme.backgroundColor ??
-                              theme.scaffoldBackgroundColor,
-                          child: TabBar(
-                            labelColor: isDarkMode
-                                ? Colors.white
-                                : theme.primaryColor,
-                            unselectedLabelColor: isDarkMode
-                                ? Colors.white38
-                                : Colors.black38,
-                            indicatorColor: theme.primaryColor,
-                            indicatorSize: TabBarIndicatorSize.tab,
-                            tabs: const [
-                              Tab(
-                                text: 'Semua Forum',
-                                icon: Icon(Icons.forum_outlined, size: 20),
-                              ),
-                              Tab(
-                                text: 'Thread Saya',
-                                icon: Icon(
-                                  Icons.assignment_ind_outlined,
-                                  size: 20,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverAppBar(
+                title: const Text(
+                  "MacroFit Community",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                pinned: true,
+                floating: true,
+                bottom: TabBar(
+                  tabs: const [
+                    Tab(
+                      text: 'Semua Forum',
+                      icon: Icon(Icons.forum_outlined, size: 20),
                     ),
-                    SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          StreamBuilder<DocumentSnapshot>(
-                            stream: _firestore
-                                .collection('users')
-                                .doc(currentUser?.uid)
-                                .snapshots(),
-                            builder: (context, userSnapshot) {
-                              String userAvatarUrl = '';
-                              if (userSnapshot.hasData &&
-                                  userSnapshot.data!.exists) {
-                                final userData =
-                                    userSnapshot.data!.data()
-                                        as Map<String, dynamic>?;
-                                userAvatarUrl =
-                                    userData?['profile_picture'] ??
-                                    userData?['profile_image_url'] ??
-                                    userData?['photoUrl'] ??
-                                    '';
-                              }
-
-                              return PostInputSection(
-                                controller: _postController,
-                                selectedImages: _selectedImages,
-                                currentUserImageUrl: userAvatarUrl,
-                                onPickImage: _pickImage,
-                                isPosting: _isPosting,
-                                onCreatePost: _createPost,
-                                onClearImage: () =>
-                                    setState(() => _selectedImages.clear()),
-                                onRemoveSpecificImage: (index) {
-                                  setState(() {
-                                    _selectedImages.removeAt(index);
-                                  });
-                                },
-                              );
-                            },
-                          ),
-                          const Divider(thickness: 1, height: 1),
-                        ],
-                      ),
+                    Tab(
+                      text: 'Thread Saya',
+                      icon: Icon(Icons.assignment_ind_outlined, size: 20),
                     ),
-                  ];
-                },
-            body: RefreshIndicator(
-              color: theme.primaryColor,
-              onRefresh: () async {
-                await Future.delayed(const Duration(milliseconds: 800));
-                if (mounted) {
-                  setState(() {
-                    _forumRefreshKey = DateTime.now().millisecondsSinceEpoch
-                        .toString();
-                  });
-                }
-              },
-              child: TabBarView(
-                children: [
-                  PostListStream(
-                    key: ValueKey('all_forum_stream_$_forumRefreshKey'),
-                    filterUid: null,
-                    firestore: _firestore,
-                    auth: _auth,
-                    onDeletePost: _deletePost,
-                    onLikeToggle: _toggleLike,
-                  ),
-                  PostListStream(
-                    key: ValueKey(
-                      'my_forum_stream_${currentUser?.uid}_$_forumRefreshKey',
-                    ),
-                    filterUid: currentUser?.uid,
-                    firestore: _firestore,
-                    auth: _auth,
-                    onDeletePost: _deletePost,
-                    onLikeToggle: _toggleLike,
-                  ),
-                ],
+                  ],
+                ),
               ),
+              SliverToBoxAdapter(
+                child: StreamBuilder<DocumentSnapshot>(
+                  stream: _firestore
+                      .collection('users')
+                      .doc(currentUser?.uid)
+                      .snapshots(),
+                  builder: (context, userSnapshot) {
+                    String avatar =
+                        (userSnapshot.hasData && userSnapshot.data!.exists)
+                        ? (userSnapshot.data!.data()
+                                  as Map)['profile_picture'] ??
+                              ''
+                        : '';
+                    return PostInputSection(
+                      controller: _postController,
+                      selectedImages: _selectedImages,
+                      currentUserImageUrl: avatar,
+                      onPickImage: _pickImage,
+                      isPosting: _isPosting,
+                      onCreatePost: _createPost,
+                      onClearImage: () =>
+                          setState(() => _selectedImages.clear()),
+                      onRemoveSpecificImage: (i) =>
+                          setState(() => _selectedImages.removeAt(i)),
+                    );
+                  },
+                ),
+              ),
+            ],
+            body: TabBarView(
+              children: [
+                PostListStream(
+                  key: ValueKey('all_$_forumRefreshKey'),
+                  filterUid: null,
+                  firestore: _firestore,
+                  auth: _auth,
+                  onDeletePost: _deletePost,
+                  onLikeToggle: _toggleLike,
+                ),
+                PostListStream(
+                  key: ValueKey('my_${currentUser?.uid}_$_forumRefreshKey'),
+                  filterUid: currentUser?.uid,
+                  firestore: _firestore,
+                  auth: _auth,
+                  onDeletePost: _deletePost,
+                  onLikeToggle: _toggleLike,
+                ),
+              ],
             ),
           ),
         ),
