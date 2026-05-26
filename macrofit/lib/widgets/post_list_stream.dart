@@ -50,8 +50,8 @@ class PostListStream extends StatelessWidget {
 
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 80),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: false,
+          physics: const AlwaysScrollableScrollPhysics(),
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final doc = posts[index];

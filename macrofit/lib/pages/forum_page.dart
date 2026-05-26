@@ -235,21 +235,47 @@ class _ForumPageState extends State<ForumPage> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    PostListStream(
-                      key: ValueKey('all_$_forumRefreshKey'),
-                      filterUid: null,
-                      firestore: _firestore,
-                      auth: _auth,
-                      onDeletePost: _deletePost,
-                      onLikeToggle: _toggleLike,
+                    // 🟢 Tambahkan RefreshIndicator di sini
+                    RefreshIndicator(
+                      color: Theme.of(context).primaryColor,
+                      onRefresh: () async {
+                        // Trigger pembaruan dengan mengubah key (ini akan me-rebuild StreamBuilder)
+                        setState(() {
+                          _forumRefreshKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: PostListStream(
+                        key: ValueKey('all_$_forumRefreshKey'),
+                        filterUid: null,
+                        firestore: _firestore,
+                        auth: _auth,
+                        onDeletePost: _deletePost,
+                        onLikeToggle: _toggleLike,
+                      ),
                     ),
-                    PostListStream(
-                      key: ValueKey('my_${currentUser?.uid}_$_forumRefreshKey'),
-                      filterUid: currentUser?.uid,
-                      firestore: _firestore,
-                      auth: _auth,
-                      onDeletePost: _deletePost,
-                      onLikeToggle: _toggleLike,
+
+                    // Lakukan hal yang sama untuk tab kedua
+                    RefreshIndicator(
+                      color: Theme.of(context).primaryColor,
+                      onRefresh: () async {
+                        setState(() {
+                          _forumRefreshKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: PostListStream(
+                        key: ValueKey(
+                          'my_${currentUser?.uid}_$_forumRefreshKey',
+                        ),
+                        filterUid: currentUser?.uid,
+                        firestore: _firestore,
+                        auth: _auth,
+                        onDeletePost: _deletePost,
+                        onLikeToggle: _toggleLike,
+                      ),
                     ),
                   ],
                 ),
