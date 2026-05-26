@@ -25,49 +25,48 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email and password cannot be empty")),
+        const SnackBar(content: Text("Email dan password harus diisi")),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    try {
-      String? result = await _authService.userLogin(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+    final String? result = await _authService.userLogin(
+      email: email,
+      password: password,
+    );
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (result == "success") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Login berhasil!"),
+          backgroundColor: Colors.green,
+        ),
       );
-
-      if (!mounted) return;
-
-      if (result == "success") {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Login successful")));
-
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) {
-          Future.microtask(() {
-            Navigator.pushReplacementNamed(context, "/onboarding");
-          });
-        }
-      } else {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(result ?? "Login failed")));
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("An error occurred: $e")));
-      }
+      // Bersihkan stack agar user tidak bisa kembali ke halaman login
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        "/onboarding",
+        (route) => false,
+      );
+    } else {
+      // 🟢 Menampilkan pesan error yang sudah diterjemahkan oleh AuthService
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result ?? "Login gagal"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

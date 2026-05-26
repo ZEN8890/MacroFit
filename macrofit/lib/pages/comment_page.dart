@@ -35,6 +35,7 @@ class _CommentPageState extends State<CommentPage> {
   bool _isCommentPosting = false;
   String? _editingCommentId;
   String? _replyToParentId;
+  Map<String, dynamic>? _replyingToCommentData;
 
   @override
   void dispose() {
@@ -86,6 +87,10 @@ class _CommentPageState extends State<CommentPage> {
             .add({
               'uid': user.uid,
               'parent_id': _replyToParentId,
+              'parent_username': _replyingToCommentData?['username'] ?? '',
+              'parent_content':
+                  _replyingToCommentData?['content'] ??
+                  '', // Disimpan untuk preview
               'postId_reference': widget.postId,
               'username': userData?['username'] ?? 'User',
               'username_handle': userData?['username_handle'] ?? '',
@@ -106,7 +111,9 @@ class _CommentPageState extends State<CommentPage> {
         _selectedCommentImages.clear();
         _editingCommentId = null;
         _replyToParentId = null;
+        _replyingToCommentData = null;
       });
+      FocusScope.of(context).unfocus();
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(
@@ -117,9 +124,14 @@ class _CommentPageState extends State<CommentPage> {
     }
   }
 
-  void _triggerReply(String targetHandle, String commentId) {
+  void _triggerReply(
+    String targetHandle,
+    String commentId,
+    Map<String, dynamic> commentData,
+  ) {
     setState(() {
       _replyToParentId = commentId;
+      _replyingToCommentData = commentData;
       _commentController.text = "@${targetHandle.replaceAll('@', '')} ";
       _commentController.selection = TextSelection.fromPosition(
         TextPosition(offset: _commentController.text.length),
@@ -130,15 +142,18 @@ class _CommentPageState extends State<CommentPage> {
     });
   }
 
+  String _getPreview(String text) {
+    if (text.length <= 20) return text;
+    return "${text.substring(0, 20)}...";
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final textColor =
-        theme.textTheme.bodyMedium?.color ??
-        (isDarkMode ? Colors.white : Colors.black87);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(_editingCommentId != null ? 'Edit Komentar' : 'Balasan'),
       ),
@@ -146,17 +161,9 @@ class _CommentPageState extends State<CommentPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: RichText(
-              text: TextSpan(
-                style: TextStyle(color: textColor),
-                children: [
-                  TextSpan(
-                    text: "${widget.postUsername} ",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(text: widget.postContent),
-                ],
-              ),
+            child: Text(
+              widget.postContent,
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
           const Divider(height: 1),
@@ -171,38 +178,16 @@ class _CommentPageState extends State<CommentPage> {
               builder: (context, snapshot) {
                 if (!snapshot.hasData)
                   return const Center(child: CircularProgressIndicator());
-
                 final allDocs = snapshot.data!.docs;
-
-                // Mengurutkan komentar agar balasan selalu ada di bawah induknya
-                // Logika: Induk muncul duluan, lalu anaknya (Level 2), lalu anaknya (Level 3)
-                final List<QueryDocumentSnapshot> sortedDocs = [];
-                final parents = allDocs
-                    .where((d) => (d.data() as Map)['parent_id'] == null)
-                    .toList();
-
-                for (var p in parents) {
-                  sortedDocs.add(p);
-                  sortedDocs.addAll(
-                    allDocs.where(
-                      (d) => (d.data() as Map)['parent_id'] == p.id,
-                    ),
-                  );
-                }
-
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: sortedDocs.length,
+                  padding: const EdgeInsets.only(top: 8, bottom: 20),
+                  itemCount: allDocs.length,
                   itemBuilder: (_, index) {
-                    final doc = sortedDocs[index];
+                    final doc = allDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    final bool isReply =
-                        data['parent_id'] != null &&
-                        data['parent_id'].toString().isNotEmpty;
-
                     return Padding(
                       padding: EdgeInsets.only(
-                        left: isReply ? 48.0 : 0.0,
+                        left: (data['parent_id'] != null) ? 48.0 : 0.0,
                         bottom: 4.0,
                       ),
                       child: CommentCard(
@@ -221,7 +206,7 @@ class _CommentPageState extends State<CommentPage> {
                         }),
                         onUnsend: (id, _) {},
                         onReplyTrigger: (handle) =>
-                            _triggerReply(handle, doc.id),
+                            _triggerReply(handle, doc.id, data),
                       ),
                     );
                   },
@@ -229,6 +214,40 @@ class _CommentPageState extends State<CommentPage> {
               },
             ),
           ),
+
+          // Preview Balasan
+          if (_replyingToCommentData != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: theme.primaryColor.withOpacity(0.1),
+              child: Row(
+                children: [
+                  Icon(Icons.reply, size: 16, color: theme.primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Membalas ke @${_replyingToCommentData!['username']}: \"${_getPreview(_replyingToCommentData!['content'])}\"",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.primaryColor,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: () => setState(() {
+                      _replyToParentId = null;
+                      _replyingToCommentData = null;
+                      _commentController.clear();
+                    }),
+                  ),
+                ],
+              ),
+            ),
+
           StreamBuilder<DocumentSnapshot>(
             stream: _firestore
                 .collection('users')
@@ -247,9 +266,7 @@ class _CommentPageState extends State<CommentPage> {
                   final List<XFile> images = await _picker.pickMultiImage();
                   if (images.isNotEmpty)
                     setState(
-                      () => _selectedCommentImages.addAll(
-                        images.take(3 - _selectedCommentImages.length),
-                      ),
+                      () => _selectedCommentImages.addAll(images.take(3)),
                     );
                 },
                 isPosting: _isCommentPosting,

@@ -192,83 +192,88 @@ class _ForumPageState extends State<ForumPage> {
   Widget build(BuildContext context) {
     final currentUser = _auth.currentUser;
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        // PENTING: resizeToAvoidBottomInset harus true agar layar "naik"
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
-          child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              SliverAppBar(
-                title: const Text(
-                  "MacroFit Community",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+          child: Column(
+            // Ubah dari NestedScrollView ke Column untuk kontrol lebih baik
+            children: [
+              // 1. Header (AppBar + TabBar)
+              const Material(
+                child: ListTile(
+                  title: Text(
+                    "MacroFit Community",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                pinned: true,
-                floating: true,
-                bottom: TabBar(
-                  tabs: const [
-                    Tab(
-                      text: 'Semua Forum',
-                      icon: Icon(Icons.forum_outlined, size: 20),
+              ),
+              const TabBar(
+                tabs: [
+                  Tab(
+                    text: 'Semua Forum',
+                    icon: Icon(Icons.forum_outlined, size: 20),
+                  ),
+                  Tab(
+                    text: 'Thread Saya',
+                    icon: Icon(Icons.assignment_ind_outlined, size: 20),
+                  ),
+                ],
+              ),
+
+              // 2. Input Section
+              StreamBuilder<DocumentSnapshot>(
+                stream: _firestore
+                    .collection('users')
+                    .doc(currentUser?.uid)
+                    .snapshots(),
+                builder: (context, userSnapshot) {
+                  String avatar =
+                      (userSnapshot.hasData && userSnapshot.data!.exists)
+                      ? (userSnapshot.data!.data() as Map)['profile_picture'] ??
+                            ''
+                      : '';
+                  return PostInputSection(
+                    controller: _postController,
+                    selectedImages: _selectedImages,
+                    currentUserImageUrl: avatar,
+                    onPickImage: _pickImage,
+                    isPosting: _isPosting,
+                    onCreatePost: _createPost,
+                    onClearImage: () => setState(() => _selectedImages.clear()),
+                    onRemoveSpecificImage: (i) =>
+                        setState(() => _selectedImages.removeAt(i)),
+                  );
+                },
+              ),
+
+              // 3. Body (TabBarView)
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    PostListStream(
+                      key: ValueKey('all_$_forumRefreshKey'),
+                      filterUid: null,
+                      firestore: _firestore,
+                      auth: _auth,
+                      onDeletePost: _deletePost,
+                      onLikeToggle: _toggleLike,
                     ),
-                    Tab(
-                      text: 'Thread Saya',
-                      icon: Icon(Icons.assignment_ind_outlined, size: 20),
+                    PostListStream(
+                      key: ValueKey('my_${currentUser?.uid}_$_forumRefreshKey'),
+                      filterUid: currentUser?.uid,
+                      firestore: _firestore,
+                      auth: _auth,
+                      onDeletePost: _deletePost,
+                      onLikeToggle: _toggleLike,
                     ),
                   ],
                 ),
               ),
-              SliverToBoxAdapter(
-                child: StreamBuilder<DocumentSnapshot>(
-                  stream: _firestore
-                      .collection('users')
-                      .doc(currentUser?.uid)
-                      .snapshots(),
-                  builder: (context, userSnapshot) {
-                    String avatar =
-                        (userSnapshot.hasData && userSnapshot.data!.exists)
-                        ? (userSnapshot.data!.data()
-                                  as Map)['profile_picture'] ??
-                              ''
-                        : '';
-                    return PostInputSection(
-                      controller: _postController,
-                      selectedImages: _selectedImages,
-                      currentUserImageUrl: avatar,
-                      onPickImage: _pickImage,
-                      isPosting: _isPosting,
-                      onCreatePost: _createPost,
-                      onClearImage: () =>
-                          setState(() => _selectedImages.clear()),
-                      onRemoveSpecificImage: (i) =>
-                          setState(() => _selectedImages.removeAt(i)),
-                    );
-                  },
-                ),
-              ),
             ],
-            body: TabBarView(
-              children: [
-                PostListStream(
-                  key: ValueKey('all_$_forumRefreshKey'),
-                  filterUid: null,
-                  firestore: _firestore,
-                  auth: _auth,
-                  onDeletePost: _deletePost,
-                  onLikeToggle: _toggleLike,
-                ),
-                PostListStream(
-                  key: ValueKey('my_${currentUser?.uid}_$_forumRefreshKey'),
-                  filterUid: currentUser?.uid,
-                  firestore: _firestore,
-                  auth: _auth,
-                  onDeletePost: _deletePost,
-                  onLikeToggle: _toggleLike,
-                ),
-              ],
-            ),
           ),
         ),
       ),

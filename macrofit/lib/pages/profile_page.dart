@@ -210,8 +210,21 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       onPressed: () async {
+                        // 1. Tutup dialog terlebih dahulu
                         Navigator.pop(context);
+
+                        // 2. Lakukan proses Sign Out
                         await FirebaseAuth.instance.signOut();
+
+                        // 3. Bersihkan navigasi dan paksa ke halaman login
+                        // (route) => false memastikan semua history halaman sebelumnya dihapus
+                        if (context.mounted) {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login', // Pastikan route ini sesuai dengan konfigurasi rute Anda
+                            (route) => false,
+                          );
+                        }
                       },
                       child: const Text(
                         'Keluar',

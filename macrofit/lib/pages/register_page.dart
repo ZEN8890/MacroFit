@@ -150,7 +150,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 keyboardType: TextInputType.text,
                 style: const TextStyle(fontWeight: FontWeight.bold),
                 decoration: const InputDecoration(
-                  labelText: "Username (e.g: stvnnvts8)",
+                  labelText: "Username",
                   prefixText:
                       "@ ", // Menampilkan simbol @ di depan field input teks
                   prefixStyle: TextStyle(

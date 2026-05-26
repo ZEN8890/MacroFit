@@ -45,8 +45,25 @@ class _RecipePageState extends State<RecipePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkDailyRefreshAndCounter();
+      _initializeRecipeData(); // 🟢 Panggil fungsi inisialisasi baru
     });
+  }
+
+  Future<void> _initializeRecipeData() async {
+    // 1. Cek apakah ada resep AI di Firestore
+    final aiRecipes = await _firestore
+        .collection('recipes')
+        .where('type', isEqualTo: 'AI')
+        .limit(1)
+        .get();
+
+    // 2. Jika tidak ada resep AI sama sekali, generate otomatis
+    if (aiRecipes.docs.isEmpty) {
+      await _generateAIRecipe(isAutoRefresh: true);
+    }
+
+    // 3. Jalankan pengecekan limit harian
+    await _checkDailyRefreshAndCounter();
   }
 
   Future<void> _checkDailyRefreshAndCounter() async {
