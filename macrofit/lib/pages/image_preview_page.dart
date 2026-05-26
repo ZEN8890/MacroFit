@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:gal/gal.dart'; // 🟢 Ganti import ke gal
+import 'package:gal/gal.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class ImagePreviewPage extends StatefulWidget {
   final List<String> imageUrls;
@@ -29,7 +30,6 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     _pageController = PageController(initialPage: widget.initialIndex);
   }
 
-  // 💾 FUNGSI DOWNLOAD BARU MENGGUNAKAN GAL
   Future<void> _downloadImage(String url) async {
     setState(() => _isDownloading = true);
 
@@ -61,24 +61,15 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       if (mounted) Navigator.pop(context); // Tutup loading dialog
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Foto berhasil disimpan ke galeri perangkat Anda!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        // 🟢 GANTI: SnackBar ke Notify.success
+        Notify.success(context, 'Foto berhasil disimpan ke galeri!');
       }
     } catch (e) {
       if (mounted) Navigator.pop(context); // Tutup loading dialog jika gagal
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Gagal mengunduh foto: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        // 🟢 GANTI: SnackBar ke Notify.error
+        Notify.error(context, 'Gagal mengunduh foto: $e');
       }
     } finally {
       if (mounted) {

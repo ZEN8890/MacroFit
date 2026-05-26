@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/ai_services.dart';
+import '../utils/notification_helper.dart';
 
 class FoodInputSheet extends StatefulWidget {
   const FoodInputSheet({super.key});
@@ -17,24 +18,13 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
   // --- HELPER SNACKBAR ---
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 110,
-          left: 20,
-          right: 20,
-        ),
-      ),
-    );
+    Notify.error(context, message);
   }
 
   // --- PROSES HASIL AI (Hanya Kirim Balik ke Home) ---
   Future<void> _handleResult(Map<String, dynamic> result) async {
     if (result.containsKey('is_food') && result['is_food'] == false) {
-      _showErrorSnackBar("Maaf, itu tidak terlihat seperti makanan.");
+      Notify.error(context, "Maaf, itu tidak terlihat seperti makanan.");
       return;
     }
 
@@ -45,7 +35,7 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
         Navigator.pop(context, result);
       }
     } else {
-      _showErrorSnackBar("Gagal menganalisis nutrisi.");
+      Notify.error(context, "Gagal menganalisis nutrisi.");
     }
   }
 
@@ -63,7 +53,7 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
       final result = await AIService().analyzeFoodImage(bytes);
       await _handleResult(result);
     } catch (e) {
-      _showErrorSnackBar("Kesalahan kamera.");
+      if (mounted) Notify.error(context, "Kesalahan kamera: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,7 +68,7 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
       final result = await AIService().analyzeFood(input);
       await _handleResult(result);
     } catch (e) {
-      _showErrorSnackBar("Gagal memproses teks.");
+      if (mounted) Notify.error(context, "Gagal memproses teks: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

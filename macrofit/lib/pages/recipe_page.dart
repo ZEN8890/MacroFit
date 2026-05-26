@@ -9,6 +9,7 @@ import '../widgets/recipe_detail_sheet.dart';
 import '../widgets/add_recipe_sheet.dart';
 import '../widgets/recipe_stream_view.dart';
 import '../services/storage_services.dart';
+import '../utils/notification_helper.dart';
 
 class RecipePage extends StatefulWidget {
   const RecipePage({super.key});
@@ -100,9 +101,7 @@ class _RecipePageState extends State<RecipePage> {
   Future<void> _generateAIRecipe({bool isAutoRefresh = false}) async {
     if (!isAutoRefresh && _remainingCounter <= 0) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Batas limit harian habis!')),
-        );
+        Notify.error(context, 'Batas limit harian habis!');
       }
       return;
     }
@@ -275,13 +274,7 @@ class _RecipePageState extends State<RecipePage> {
               });
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Resep kreasi Anda berhasil diperbarui secara lengkap!',
-                    ),
-                  ),
-                );
+                Notify.success(context, 'Resep berhasil diperbarui!');
               }
             },
       ),
@@ -304,11 +297,7 @@ class _RecipePageState extends State<RecipePage> {
         onDeleteRecipe: () async {
           await _firestore.collection('recipes').doc(docId).delete();
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Resep Anda berhasil dihapus secara permanen.'),
-              ),
-            );
+            Notify.success(context, 'Resep berhasil dihapus permanen.');
           }
         },
       ),
@@ -389,11 +378,7 @@ class _RecipePageState extends State<RecipePage> {
                 });
 
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Resep berhasil dipublikasikan!'),
-                    ),
-                  );
+                  Notify.success(context, 'Resep berhasil dipublikasikan!');
                 }
               } catch (e) {
                 debugPrint("Error publishing recipe: $e");
@@ -439,14 +424,7 @@ class _RecipePageState extends State<RecipePage> {
 
       if (favoriteSnapshot.docs.length >= 50) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '⚠️ Batas simpan penuh! Koleksi resep Saved maksimal adalah 50 resep.',
-              ),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          Notify.error(context, 'Batas simpan penuh (Maks. 50 resep).');
         }
         return;
       }
@@ -473,11 +451,7 @@ class _RecipePageState extends State<RecipePage> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Resep AI berhasil disimpan ke Library Saved!'),
-            ),
-          );
+          Notify.success(context, 'Resep AI berhasil disimpan!');
         }
       } else {
         await docRef.update({

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; // 🔥 IMPORT IMAGE PICKER
+import 'package:macrofit/utils/notification_helper.dart';
 
 class AddRecipeSheet extends StatefulWidget {
   final List<String> dietOptions;
@@ -107,9 +108,9 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal mengambil gambar: $e')));
+      if (mounted) {
+        Notify.error(context, 'Gagal mengambil gambar: $e');
+      }
     }
   }
 

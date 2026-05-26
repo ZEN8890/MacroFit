@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/post_list_stream.dart';
+import '../utils/notification_helper.dart'; // Import helper notifikasi
 
 class ForumPage extends StatefulWidget {
   const ForumPage({super.key});
@@ -43,7 +44,6 @@ class _ForumPageState extends State<ForumPage> {
         );
       }
 
-      // Ambil data user untuk memastikan handle terbaru
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
 
@@ -62,7 +62,6 @@ class _ForumPageState extends State<ForumPage> {
         handle = userData['username_handle'] ?? '';
       }
 
-      // Menyimpan data postingan beserta handle dinamis
       await _firestore.collection('posts').add({
         'uid': user.uid,
         'username': username,
@@ -82,18 +81,12 @@ class _ForumPageState extends State<ForumPage> {
         _isPosting = false;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thread berhasil dibagikan!')),
-        );
-      }
+      if (mounted) Notify.success(context, 'Thread berhasil dibagikan!');
     } catch (e) {
       debugPrint("Error creating post: $e");
       if (mounted) {
         setState(() => _isPosting = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal mengirim postingan: $e')));
+        Notify.error(context, 'Gagal mengirim postingan: $e');
       }
     }
   }
@@ -158,11 +151,9 @@ class _ForumPageState extends State<ForumPage> {
         }
       }
       await _firestore.collection('posts').doc(postId).delete();
+      if (mounted) Notify.success(context, "Thread berhasil dihapus");
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      if (mounted) Notify.error(context, 'Gagal menghapus: $e');
     }
   }
 
@@ -175,10 +166,7 @@ class _ForumPageState extends State<ForumPage> {
           int sisa = 5 - _selectedImages.length;
           if (sisa > 0)
             setState(() => _selectedImages.addAll(images.take(sisa)));
-          if (mounted)
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Maksimal 5 foto!')));
+          if (mounted) Notify.error(context, 'Maksimal 5 foto!');
         } else {
           setState(() => _selectedImages.addAll(images));
         }
@@ -196,13 +184,10 @@ class _ForumPageState extends State<ForumPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        // PENTING: resizeToAvoidBottomInset harus true agar layar "naik"
         resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: Column(
-            // Ubah dari NestedScrollView ke Column untuk kontrol lebih baik
             children: [
-              // 1. Header (AppBar + TabBar)
               const Material(
                 child: ListTile(
                   title: Text(
@@ -223,8 +208,6 @@ class _ForumPageState extends State<ForumPage> {
                   ),
                 ],
               ),
-
-              // 2. Input Section
               StreamBuilder<DocumentSnapshot>(
                 stream: _firestore
                     .collection('users')
@@ -249,8 +232,6 @@ class _ForumPageState extends State<ForumPage> {
                   );
                 },
               ),
-
-              // 3. Body (TabBarView)
               Expanded(
                 child: TabBarView(
                   children: [

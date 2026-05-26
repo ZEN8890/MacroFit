@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../utils/notification_helper.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -83,16 +84,10 @@ class _ProfilePageState extends State<ProfilePage> {
         'profile_picture': downloadUrl,
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto profil berhasil diperbarui!')),
-        );
-      }
+      if (mounted) Notify.success(context, 'Foto profil berhasil diperbarui!');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal memperbarui foto: $e')));
+        Notify.error(context, 'Gagal memperbarui foto: $e');
       }
     } finally {
       if (mounted) {
@@ -123,15 +118,11 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto profil dikembalikan ke default.')),
-        );
+        Notify.success(context, 'Foto profil dikembalikan ke default.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal menghapus foto: $e')));
+        Notify.error(context, 'Gagal menghapus foto: $e');
       }
     }
   }
@@ -351,13 +342,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
                       if (isTakenByOthers) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                '⚠️ Username telah digunakan oleh akun lain! Silakan gunakan nama lain.',
-                              ),
-                              backgroundColor: Colors.redAccent,
-                            ),
+                          Notify.error(
+                            context,
+                            '⚠️ Username telah digunakan oleh akun lain!',
                           );
                         }
                         return;
@@ -546,15 +533,7 @@ class _ProfilePageState extends State<ProfilePage> {
         if (selectedDietCode == 'keto_diet') displayName = 'Diet Keto';
         if (selectedDietCode == 'vegetarian') displayName = 'Vegetarian';
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '⚡ Program diganti ke $displayName! Target dihitung ulang: $targetCalories kkal | P: ${targetProteins}g | K: ${targetCarbs}g | L: ${targetFats}g',
-            ),
-            backgroundColor: Colors.teal,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        Notify.success(context, '⚡ Program diganti ke $displayName!');
       }
     } catch (e) {
       debugPrint("Gagal mengkalkulasi ulang data diet program: $e");
@@ -995,11 +974,24 @@ class _InlineBioCardState extends State<InlineBioCard> {
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     onPressed: () async {
-                      await FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(widget.userId)
-                          .update({'bio': _controller.text.trim()});
-                      setState(() => _isChanged = false);
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(widget.userId)
+                            .update({'bio': _controller.text.trim()});
+
+                        setState(() => _isChanged = false);
+
+                        // 🟢 GANTI: ScaffoldMessenger ke Notify.success
+                        if (mounted) {
+                          Notify.success(context, "Bio berhasil diperbarui!");
+                        }
+                      } catch (e) {
+                        // 🟢 GANTI: ScaffoldMessenger ke Notify.error
+                        if (mounted) {
+                          Notify.error(context, "Gagal memperbarui bio: $e");
+                        }
+                      }
                     },
                   ),
               ],

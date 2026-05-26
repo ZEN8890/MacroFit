@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../pages/public_profile_page.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class RecipeDetailSheet extends StatefulWidget {
   final Map<String, dynamic> recipeData;
@@ -44,14 +45,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
     String pPic,
   ) async {
     if (_selectedRating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '⚠️ Silakan pilih rating bintang terlebih dahulu sebelum mengirim ulasan.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      Notify.error(context, '⚠️ Silakan pilih rating bintang terlebih dahulu.');
       return;
     }
 
@@ -94,10 +88,9 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Komentar dan rating berhasil dipublish!'),
-          ),
+        Notify.error(
+          context,
+          '⚠️ Silakan pilih rating bintang terlebih dahulu.',
         );
       }
     } catch (e) {
@@ -370,12 +363,9 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                             ),
                             onPressed: isLockedByCommunity
                                 ? () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Resep ini sudah disimpan pengguna lain dan tidak dapat diubah demi validitas panduan gizi komunitas.',
-                                        ),
-                                      ),
+                                    Notify.error(
+                                      context,
+                                      'Resep ini tidak dapat diubah karena sudah disimpan pengguna lain.',
                                     );
                                   }
                                 : () => Navigator.pop(context, true),

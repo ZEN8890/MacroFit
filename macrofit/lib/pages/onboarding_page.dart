@@ -8,6 +8,7 @@ import '../widgets/activity_card.dart';
 import '../widgets/goal_card.dart';
 import '../models/nutrition_model.dart';
 import 'home_page.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -101,13 +102,12 @@ final List<GoalOption> dietGoals = [
 class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  double? _selectedActivityValue; // Tambahkan di bagian atas state
+  double? _selectedActivityValue;
 
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   String? _selectedGender;
-  String? _selectedGoal;
   String? _selectedDietCode;
 
   @override
@@ -129,11 +129,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void _submitData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Sesi login berakhir, silakan login ulang"),
-        ),
-      );
+      Notify.error(context, "Sesi login berakhir, silakan login ulang");
       return;
     }
 
@@ -150,36 +146,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     double tdee = bmr * (_selectedActivityValue ?? 1.2);
 
-    // 1. Tentukan target kalori berdasarkan goal
     double goalCalories = tdee;
-    if (_selectedDietCode == 'lose_weight') goalCalories -= 500;
+    if (_selectedDietCode == 'Menurunkan Berat Badan') goalCalories -= 500;
     if (_selectedDietCode == 'gain_muscle') goalCalories += 500;
 
-    // 2. LOGIKA GULA (Sesuai yang kamu tulis)
     double sugarPercentage = (_selectedDietCode == 'keto_diet') ? 0.05 : 0.10;
     double sugarGramCalculated = (goalCalories * sugarPercentage) / 4;
     if (_selectedDietCode == 'keto_diet' && sugarGramCalculated > 25) {
       sugarGramCalculated = 25;
     }
 
-    // 3. LOGIKA AIR (Sesuai yang kamu tulis)
     double calculatedWaterTarget = weight * 33;
-
-    // 4. Pembagian Makro (Protein, Karbo, Lemak)
     double proteinGram = (goalCalories * 0.25) / 4;
     double carbsGram = (goalCalories * 0.45) / 4;
     double fatsGram = (goalCalories * 0.30) / 9;
 
-    // 5. Masukkan ke Model (Gunakan nama variabel yang sinkron)
     final hasilNutrisi = NutritionModel(
       targetCalMin: (goalCalories - 100).round(),
       targetCalMax: (goalCalories + 100).round(),
       proteinGram: proteinGram.round(),
       carbsGram: carbsGram.round(),
       fatsGram: fatsGram.round(),
-      sugarGram: sugarGramCalculated.round(), // Gunakan hasil hitungan gula
-      waterMl: calculatedWaterTarget
-          .round(), // Gunakan hasil hitungan air ke waterMl
+      sugarGram: sugarGramCalculated.round(),
+      waterMl: calculatedWaterTarget.round(),
       dietCode: _selectedDietCode!,
     );
 
@@ -197,17 +186,52 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => HomePage()),
+        MaterialPageRoute(builder: (context) => const HomePage()),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Gagal menyimpan data: $e")));
+      Notify.error(context, "Gagal menyimpan data: $e");
     }
   }
 
+  // ... (Widget _buildPhysicalDataStep, _buildActivityStep, _buildGoalStep tetap sama)
+  // [Kode _buildPhysicalDataStep, _buildActivityStep, _buildGoalStep disisipkan di sini]
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: LinearProgressIndicator(
+                value: (_currentPage + 1) / 3,
+                backgroundColor: Theme.of(context).colorScheme.outline,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (int page) =>
+                    setState(() => _currentPage = page),
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildPhysicalDataStep(),
+                  _buildActivityStep(),
+                  _buildGoalStep(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Sisa method _build...Step tetap menggunakan Notify.error jika validasi gagal
   Widget _buildPhysicalDataStep() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -217,10 +241,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const Text(
             "Mari mulai dengan data fisik Anda",
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            "Data ini diperlukan untuk menghitung kebutuhan kalori harian Anda secara akurat.",
           ),
           const SizedBox(height: 30),
           Row(
@@ -241,7 +261,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ],
           ),
           const SizedBox(height: 30),
-
           CustomInputField(
             label: "Umur",
             controller: _ageController,
@@ -262,7 +281,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             suffix: "cm",
             icon: Icons.height,
           ),
-
           const SizedBox(height: 40),
           SizedBox(
             width: double.infinity,
@@ -274,9 +292,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     _heightController.text.isNotEmpty) {
                   _nextPage();
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Mohon lengkapi semua data")),
-                  );
+                  Notify.error(context, "Mohon lengkapi semua data");
                 }
               },
               child: const Text("Lanjut"),
@@ -297,12 +313,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             "Seberapa aktif Anda?",
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            "Pilih tingkat aktivitas harian untuk menentukan Total Energy Expenditure (TDEE) Anda.",
-          ),
           const SizedBox(height: 30),
-
           ...activities
               .map(
                 (act) => ActivityCard(
@@ -314,7 +325,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               )
               .toList(),
-
           const SizedBox(height: 40),
           Row(
             children: [
@@ -351,21 +361,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
             "Apa target nutrisi Anda?",
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            "Pilih pola makan yang paling sesuai dengan tujuan kesehatan Anda.",
-          ),
           const SizedBox(height: 30),
-          ...dietGoals.map((diet) {
-            return GoalCard(
-              title: diet.title,
-              subtitle: diet.subtitle,
-              icon: diet.icon,
-              isSelected: _selectedDietCode == diet.code,
-              onTap_goal: () => setState(() => _selectedDietCode = diet.code),
-            );
-          }).toList(),
-
+          ...dietGoals
+              .map(
+                (diet) => GoalCard(
+                  title: diet.title,
+                  subtitle: diet.subtitle,
+                  icon: diet.icon,
+                  isSelected: _selectedDietCode == diet.code,
+                  onTap_goal: () =>
+                      setState(() => _selectedDietCode = diet.code),
+                ),
+              )
+              .toList(),
           const SizedBox(height: 40),
           Row(
             children: [
@@ -384,7 +392,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   onPressed: _selectedDietCode != null ? _submitData : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-
                     foregroundColor: Colors.white,
                   ),
                   child: const Text(
@@ -396,42 +403,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: LinearProgressIndicator(
-                value: (_currentPage + 1) / 3, // Asumsi ada 3 langkah
-                backgroundColor: Theme.of(context).colorScheme.outline,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (int page) {
-                  setState(() {
-                    _currentPage = page;
-                  });
-                },
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPhysicalDataStep(),
-                  _buildActivityStep(),
-                  _buildGoalStep(),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

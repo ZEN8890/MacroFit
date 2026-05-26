@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🟢 TAMBAHKAN IMPORT INI UNTUK MENGECEK KEUNIKAN USERNAME
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_services.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -16,7 +18,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  // 🟢 1. INARKAN CONTROLLER BARU UNTUK USERNAME HANDLE
   final TextEditingController _usernameController = TextEditingController();
 
   bool _isLoading = false;
@@ -28,7 +29,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _usernameController.dispose(); // 🟢 DISPOSE CONTROLLER USERNAME
+    _usernameController.dispose();
     super.dispose();
   }
 
@@ -37,7 +38,6 @@ class _RegisterPageState extends State<RegisterPage> {
     final String password = _passwordController.text.trim();
     final String firstName = _firstNameController.text.trim();
     final String lastName = _lastNameController.text.trim();
-    // 🟢 Ambil input username, paksa jadi huruf kecil dan buang spasi kosong ala Instagram
     final String usernameHandle = _usernameController.text
         .trim()
         .toLowerCase()
@@ -48,70 +48,56 @@ class _RegisterPageState extends State<RegisterPage> {
         firstName.isEmpty ||
         lastName.isEmpty ||
         usernameHandle.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Form cannot be empty")));
+      // 🟢 GANTI: ScaffoldMessenger ke Notify.error
+      Notify.error(context, "Form tidak boleh ada yang kosong");
       return;
     }
 
     setState(() => _isLoading = true);
 
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
     try {
-      // 🟢 2. LOGIKA VALIDASI UTAMA: Cek keunikan username ke Cloud Firestore database
+      // 🟢 LOGIKA VALIDASI: Cek keunikan username
       final usernameQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('username_handle', isEqualTo: usernameHandle)
           .get();
 
       if (usernameQuery.docs.isNotEmpty) {
-        // Jika list dokumen tidak kosong, berarti username ini sudah hangus diambil orang lain
         if (mounted) {
           setState(() => _isLoading = false);
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text(
-                "⚠️ Username sudah terdaftar! Silakan gunakan username handle lain.",
-              ),
-              backgroundColor: Colors.orangeAccent,
-            ),
-          );
+          // 🟢 GANTI: ScaffoldMessenger ke Notify.error
+          Notify.error(context, "Username sudah terdaftar! Gunakan yang lain.");
         }
-        return; // Hentikan fungsi pendaftaran di sini!
+        return;
       }
 
-      // 🟢 3. OPER PARAMETER USERNAME BARU KE AUTH SERVICE KAMU
       String? result = await _authService.userRegistration(
         email: email,
         password: password,
         firstName: firstName,
         lastName: lastName,
-        usernameHandle: usernameHandle, // 🟢 SUNTIKKAN VARIABEL HANDLE DI SINI
+        usernameHandle: usernameHandle,
       );
 
       if (result == "success") {
-        messenger.showSnackBar(
-          const SnackBar(content: Text("Registration successful")),
-        );
+        // 🟢 GANTI: ScaffoldMessenger ke Notify.success
+        if (mounted) Notify.success(context, "Registrasi berhasil!");
 
-        await Future.delayed(const Duration(milliseconds: 150));
-        navigator.pushReplacementNamed("/login");
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, "/login");
+        }
       } else {
         if (mounted) {
           setState(() => _isLoading = false);
-          messenger.showSnackBar(
-            SnackBar(content: Text(result ?? "Registration failed")),
-          );
+          // 🟢 GANTI: ScaffoldMessenger ke Notify.error
+          Notify.error(context, result ?? "Registrasi gagal");
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        messenger.showSnackBar(
-          SnackBar(content: Text("Error: ${e.toString()}")),
-        );
+        Notify.error(context, "Error: ${e.toString()}");
       }
     }
   }
@@ -143,16 +129,13 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 🟢 4. UI SEKSI INPUT USERNAME BARU (GAYA INSTAGRAM HANDLE)
               TextField(
                 controller: _usernameController,
                 keyboardType: TextInputType.text,
                 style: const TextStyle(fontWeight: FontWeight.bold),
                 decoration: const InputDecoration(
                   labelText: "Username",
-                  prefixText:
-                      "@ ", // Menampilkan simbol @ di depan field input teks
+                  prefixText: "@ ",
                   prefixStyle: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.grey,
@@ -163,7 +146,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,

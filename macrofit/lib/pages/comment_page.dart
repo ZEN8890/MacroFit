@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/comment_card.dart';
+import '../utils/notification_helper.dart'; // Import helper notifikasi
 
 class CommentPage extends StatefulWidget {
   final String postId;
@@ -64,6 +65,7 @@ class _CommentPageState extends State<CommentPage> {
               'content': _commentController.text.trim(),
               'is_edited': true,
             });
+        Notify.success(context, "Komentar berhasil diperbarui");
       } else {
         List<String> uploadedImageUrls = [];
         if (_selectedCommentImages.isNotEmpty) {
@@ -88,9 +90,7 @@ class _CommentPageState extends State<CommentPage> {
               'uid': user.uid,
               'parent_id': _replyToParentId,
               'parent_username': _replyingToCommentData?['username'] ?? '',
-              'parent_content':
-                  _replyingToCommentData?['content'] ??
-                  '', // Disimpan untuk preview
+              'parent_content': _replyingToCommentData?['content'] ?? '',
               'postId_reference': widget.postId,
               'username': userData?['username'] ?? 'User',
               'username_handle': userData?['username_handle'] ?? '',
@@ -104,6 +104,7 @@ class _CommentPageState extends State<CommentPage> {
         await _firestore.collection('posts').doc(widget.postId).update({
           'comment_count': FieldValue.increment(1),
         });
+        Notify.success(context, "Komentar berhasil dikirim");
       }
 
       _commentController.clear();
@@ -115,10 +116,7 @@ class _CommentPageState extends State<CommentPage> {
       });
       FocusScope.of(context).unfocus();
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+      Notify.error(context, "Gagal mengirim komentar: $e");
     } finally {
       if (mounted) setState(() => _isCommentPosting = false);
     }
@@ -214,8 +212,6 @@ class _CommentPageState extends State<CommentPage> {
               },
             ),
           ),
-
-          // Preview Balasan
           if (_replyingToCommentData != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -247,7 +243,6 @@ class _CommentPageState extends State<CommentPage> {
                 ],
               ),
             ),
-
           StreamBuilder<DocumentSnapshot>(
             stream: _firestore
                 .collection('users')

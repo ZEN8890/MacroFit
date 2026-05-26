@@ -11,6 +11,7 @@ import '../widgets/water_tracker_card.dart';
 import '../widgets/food_verification_card.dart';
 import 'profile_page.dart';
 import '../widgets/exercise_recommendation_card.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,13 +20,11 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-// Tambahkan AutomaticKeepAliveClientMixin agar state tidak hancur saat digeser
 class _HomePageState extends State<HomePage>
     with AutomaticKeepAliveClientMixin {
   Map<String, dynamic>? _tempFoodData;
   bool _isSaving = false;
 
-  // Wajib return true agar halaman tetap hidup di memori
   @override
   bool get wantKeepAlive => true;
 
@@ -53,19 +52,11 @@ class _HomePageState extends State<HomePage>
   void _directSaveFood(Map<String, dynamic> data) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Mencatat nutrisi..."),
-          duration: Duration(seconds: 1),
-        ),
-      );
-
+      // Notifikasi status (bisa diabaikan jika terlalu cepat, atau ganti dengan Notify.success jika mau)
       await DatabaseService().saveFoodLog(user.uid, data);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Berhasil ditambahkan!")));
+      Notify.success(context, "Berhasil ditambahkan!");
     }
   }
 
@@ -83,21 +74,11 @@ class _HomePageState extends State<HomePage>
           _isSaving = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Makanan berhasil dicatat!"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        Notify.success(context, "Makanan berhasil dicatat!");
       } catch (e) {
         if (!mounted) return;
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Gagal mencatat makanan."),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        Notify.error(context, "Gagal mencatat makanan.");
       }
     }
   }
@@ -115,9 +96,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    // Wajib panggil super.build agar KeepAlive bekerja
     super.build(context);
-
     final colorScheme = Theme.of(context).colorScheme;
     final user = FirebaseAuth.instance.currentUser;
 
@@ -143,12 +122,10 @@ class _HomePageState extends State<HomePage>
           );
         }
 
-        // Data profil utama pengguna berhasil ditarik secara real-time
         var userData = snapshot.data!.data() as Map<String, dynamic>;
         String profilePic = userData['profile_picture'] ?? '';
 
         return Scaffold(
-          // 🔥 PERBAIKAN UTAMA: Memasukkan AppBar ke dalam builder agar kebal desinkronisasi data foto
           appBar: AppBar(
             title: Text(
               "MacroFit",
@@ -157,26 +134,20 @@ class _HomePageState extends State<HomePage>
                 fontWeight: FontWeight.bold,
               ),
             ),
-            // 🔥 MENYISIPKAN ICON PROFILE REAL-TIME DI UJUNG KANAN APPBAR
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: InkWell(
-                  onTap: () {
-                    // Navigasi push transisi menuju halaman pengaturan profil
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfilePage(),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  ),
                   borderRadius: BorderRadius.circular(20),
                   child: CircleAvatar(
-                    radius:
-                        18, // Dimensi pas dan simetris di dalam deretan AppBar
+                    radius: 18,
                     backgroundColor: colorScheme.primary.withOpacity(0.1),
-                    // Deteksi URL Gambar Profil dari Firebase Storage
                     backgroundImage: profilePic.isNotEmpty
                         ? NetworkImage(profilePic)
                         : null,
@@ -203,23 +174,17 @@ class _HomePageState extends State<HomePage>
                 dietCode: userData['diet_code'] ?? 'healthy_lifestyle',
               ),
               const SizedBox(height: 25),
-              // 1. SINKRONISASI KARTU NUTRISI (P / K / L)
-              // Pastikan komponen NutritionalCard di dalamnya sudah membaca field 'target_carbs', 'target_proteins', 'target_fats'
               NutritionalCard(userData: userData, uid: user.uid),
               const SizedBox(height: 15),
-
               if (_tempFoodData != null)
                 FoodVerificationCard(
                   data: _tempFoodData!,
                   onConfirm: _confirmSaveFood,
                   onCancel: () => setState(() => _tempFoodData = null),
                 ),
-
               WaterTrackerCard(uid: user.uid, userData: userData),
               const SizedBox(height: 25),
               _buildSectionTitle("Target Kalori", colorScheme),
-
-              // 2. SINKRONISASI KARTU PROGRES KALORI HARIAN
               StreamBuilder<QuerySnapshot>(
                 stream: DatabaseService().getFilteredFoodLogs(
                   user.uid,
@@ -228,16 +193,13 @@ class _HomePageState extends State<HomePage>
                 ),
                 builder: (context, logSnapshot) {
                   num totalConsumed = 0;
-
                   if (logSnapshot.hasData) {
                     for (var doc in logSnapshot.data!.docs) {
                       var foodItem = doc.data() as Map<String, dynamic>;
                       totalConsumed += (foodItem['calories'] ?? 0);
                     }
                   }
-
                   return CalorieTargetCard(
-                    // 🔥 PERBAIKAN: Ubah key dari 'daily_calorie_target' menjadi 'target_calories'
                     targetCal: (userData['target_calories'] ?? 2000).toInt(),
                     consumedCal: totalConsumed.toInt(),
                   );

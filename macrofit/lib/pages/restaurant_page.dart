@@ -6,6 +6,7 @@ import '../services/location_services.dart';
 import '../services/restaurant_services.dart';
 import '../widgets/restaurant_card.dart';
 import '../services/ai_recommendation_services.dart';
+import '../utils/notification_helper.dart';
 
 class RestaurantPage extends StatefulWidget {
   const RestaurantPage({super.key});

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:macrofit/services/auth_services.dart';
+import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,14 +12,13 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _authService = AuthService(); // Inisialisasi class
+  final AuthService _authService = AuthService();
 
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
   @override
   void dispose() {
-    print("Disposing LoginPage Controllers");
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -29,9 +29,8 @@ class _LoginPageState extends State<LoginPage> {
     final String password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email dan password harus diisi")),
-      );
+      // 🟢 GANTI: ScaffoldMessenger dengan Notify.error
+      Notify.error(context, "Email dan password harus diisi");
       return;
     }
 
@@ -47,26 +46,20 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (result == "success") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Login berhasil!"),
-          backgroundColor: Colors.green,
-        ),
-      );
-      // Bersihkan stack agar user tidak bisa kembali ke halaman login
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        "/onboarding",
-        (route) => false,
-      );
+      // 🟢 GANTI: ScaffoldMessenger dengan Notify.success
+      Notify.success(context, "Login berhasil!");
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          "/onboarding",
+          (route) => false,
+        );
+      }
     } else {
-      // 🟢 Menampilkan pesan error yang sudah diterjemahkan oleh AuthService
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result ?? "Login gagal"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // 🟢 GANTI: ScaffoldMessenger dengan Notify.error
+      Notify.error(context, result ?? "Login gagal");
     }
   }
 
