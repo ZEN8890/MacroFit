@@ -1,3 +1,5 @@
-pas login tolong kasi tau apabila credential nya salah
-perbaiki fitur logout, karena saat logout, sepertinya data nya tidak 100% dikeluarkan
-saat pertama kali user ke resep, ai nya tidak tergenerate dan harus digenerate pakai ai generate
+tambah bahasa inggris ke setiap page
+cek apakah rumus perhitungan kalori protein dll sudah benar,beri warna pink ke logo cewek di onboarding
+saat onboarding selesai, card nutrisi, target kalori sepertinya masih default, harus diubah dulu program diet nya di profile page
+untuk ai generated resipe, disable saja fitur review nya
+form last name di register buat supaya opsional

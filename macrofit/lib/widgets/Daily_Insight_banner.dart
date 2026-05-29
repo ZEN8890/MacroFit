@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class DailyInsightCarousel extends StatefulWidget {
   const DailyInsightCarousel({super.key});
@@ -13,53 +14,77 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
   int _currentPage = 0;
   Timer? _timer;
 
-  // List 8 Informasi untuk Carousel
+  // 🟢 DATA DWI-BAHASA: Menyediakan versi EN langsung di dalam struktur Map lokal
   final List<Map<String, String>> _insights = [
     {
       "title": "Tips Diet: High Protein",
+      "titleEn": "Diet Tips: High Protein",
       "desc":
           "Protein membantu memperbaiki jaringan otot. Cobalah dada ayam atau tempe.",
+      "descEn":
+          "Protein helps repair muscle tissue. Try chicken breast or tempeh.",
       "icon": "🍗",
     },
     {
       "title": "Saran Olahraga",
+      "titleEn": "Workout Advice",
       "desc":
           "Jalan santai 30 menit setelah makan membantu kontrol gula darah.",
+      "descEn":
+          "A light 30-minute walk after meals helps control blood sugar levels.",
       "icon": "👟",
     },
     {
       "title": "Stay Hydrated",
+      "titleEn": "Stay Hydrated",
       "desc":
           "Minum 500ml air setelah bangun tidur untuk mengaktifkan metabolisme.",
+      "descEn":
+          "Drink 500ml of water right after waking up to kickstart your metabolism.",
       "icon": "💧",
     },
     {
       "title": "Motivasi Hari Ini",
+      "titleEn": "Today's Motivation",
       "desc":
           "Disiplin adalah jembatan antara target dan pencapaian. Semangat Steven!",
+      "descEn":
+          "Discipline is the bridge between goals and accomplishment. Keep it up, Steven!",
       "icon": "🚀",
     },
     {
       "title": "Kualitas Tidur",
+      "titleEn": "Sleep Quality",
       "desc":
           "Tidur 7-8 jam sangat krusial untuk pemulihan hormon pembakar lemak.",
+      "descEn":
+          "Getting 7-8 hours of sleep is crucial for fat-burning hormone recovery.",
       "icon": "😴",
     },
     {
       "title": "Tips Sayuran",
+      "titleEn": "Vegetable Tips",
       "desc":
           "Sayuran hijau mengandung serat tinggi yang membuat kenyang lebih lama.",
+      "descEn":
+          "Green vegetables are high in fiber, keeping you full for longer.",
       "icon": "🥦",
     },
     {
       "title": "Hindari Gula",
+      "titleEn": "Avoid Sugar",
       "desc": "Gula berlebih adalah penyebab utama penumpukan lemak visceral.",
+      "descEn":
+          "Excess sugar is the leading cause of visceral fat accumulation.",
       "icon": "🚫",
     },
     {
       "title": "Konsistensi",
+      "titleEn": "Consistency",
       "desc":
           "Hasil besar datang dari kebiasaan kecil yang dilakukan setiap hari.",
+      "descEn":
+          "Great results come from small habits built consistently every single day.",
       "icon": "🔥",
     },
   ];
@@ -92,7 +117,11 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
     super.dispose();
   }
 
-  void _showFullInsight(BuildContext context, Map<String, String> item) {
+  void _showFullInsight(
+    BuildContext context,
+    Map<String, String> item,
+    bool isEnglish,
+  ) {
     final theme = Theme.of(context);
     showDialog(
       context: context,
@@ -105,14 +134,14 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                item['title']!,
+                isEnglish ? item['titleEn']! : item['title']!,
                 style: TextStyle(color: theme.primaryColor, fontSize: 18),
               ),
             ),
           ],
         ),
         content: Text(
-          item['desc']!,
+          isEnglish ? item['descEn']! : item['desc']!,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 16,
             height: 1.5,
@@ -121,7 +150,10 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Tutup", style: TextStyle(color: theme.primaryColor)),
+            child: Text(
+              isEnglish ? "Close" : "Tutup",
+              style: TextStyle(color: theme.primaryColor),
+            ),
           ),
         ],
       ),
@@ -133,44 +165,50 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Column(
-      children: [
-        SizedBox(
-          height: 110, // Ketinggian card sedikit diperkecil agar compact
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (page) => setState(() => _currentPage = page),
-            itemCount: _insights.length,
-            itemBuilder: (context, index) {
-              final item = _insights[index];
-              return GestureDetector(
-                onTap: () => _showFullInsight(context, item),
-                child: _buildBannerItem(item, theme, isDark),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Indicator Titik-titik
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _insights.length,
-            (index) => AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 6,
-              width: _currentPage == index ? 16 : 6,
-              decoration: BoxDecoration(
-                color: _currentPage == index
-                    ? theme.primaryColor
-                    : theme.primaryColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus komparasi visual halaman dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Column(
+          children: [
+            SizedBox(
+              height: 110,
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (page) => setState(() => _currentPage = page),
+                itemCount: _insights.length,
+                itemBuilder: (context, index) {
+                  final item = _insights[index];
+                  return GestureDetector(
+                    onTap: () => _showFullInsight(context, item, englishActive),
+                    child: _buildBannerItem(item, theme, isDark, englishActive),
+                  );
+                },
               ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 12),
+            // Indicator Titik-titik
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _insights.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  height: 6,
+                  width: _currentPage == index ? 16 : 6,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? theme.primaryColor
+                        : theme.primaryColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -178,6 +216,7 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
     Map<String, String> item,
     ThemeData theme,
     bool isDark,
+    bool isEnglish,
   ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -206,7 +245,7 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  item['title']!,
+                  isEnglish ? item['titleEn']! : item['title']!,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.primaryColor,
@@ -215,7 +254,7 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item['desc']!,
+                  isEnglish ? item['descEn']! : item['desc']!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),

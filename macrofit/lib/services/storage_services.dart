@@ -2,12 +2,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-// 🔥 IMPORT FILE OPTIONS AGAR BUCKET MEMBACA OTOMATIS DARI CONFIGURE CLI
 import '../firebase_options.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class StorageService {
-  // 🔥 SOLUSI ANTI-GAGAL: Mengambil string storageBucket langsung dari file konfigurasi resmi
-  // Ini menghindari typo/salah format domain antara .appspot.com atau .firebasestorage.app
+  // Mengambil string storageBucket langsung dari file konfigurasi resmi
   final FirebaseStorage _storage = FirebaseStorage.instanceFor(
     app: Firebase.app(),
     bucket: DefaultFirebaseOptions.currentPlatform.storageBucket,
@@ -15,11 +14,17 @@ class StorageService {
 
   /// Fungsi untuk mengunggah gambar ke Firebase Storage dan mengembalikan Download URL berupa String
   Future<String> uploadImage(XFile imageFile, String folderName) async {
+    final bool isEnglish = isEnglishNotifier.value;
     try {
       File file = File(imageFile.path);
 
       if (!await file.exists()) {
-        throw Exception('File gambar lokal tidak ditemukan.');
+        // 🟢 TRANSLASI PESAN VALIDASI FILE LOKAL
+        throw Exception(
+          isEnglish
+              ? 'Local image file not found.'
+              : 'File gambar lokal tidak ditemukan.',
+        );
       }
 
       // Membuat nama file unik berbasis milidetik agar aman dari duplikasi
@@ -40,7 +45,12 @@ class StorageService {
       String downloadUrl = await snapshot.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {
-      throw Exception('Gagal mengunggah gambar ke Storage: $e');
+      // 🟢 TRANSLASI CRITICAL EXCEPTION UPLOAD STORAGE
+      throw Exception(
+        isEnglish
+            ? 'Failed to upload image to Storage: $e'
+            : 'Gagal mengunggah gambar ke Storage: $e',
+      );
     }
   }
 }

@@ -10,6 +10,8 @@ class AIRecommendationService {
     required String cuisineType,
     required double userTargetCalorie,
     required bool isBulking,
+    required bool
+    isEnglish, // 🟢 PARAMETER BARU: Mendeteksi status bahasa aktif saat ini
   }) async {
     if (_apiKey.isEmpty) return {'error': 'API Key Gemini tidak ditemukan'};
 
@@ -20,11 +22,18 @@ class AIRecommendationService {
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
 
+    // 🟢 SINKRONISASI BAHASA PROMPT SINGEL: Mengatur instruksi bahasa data balasan JSON AI
+    String languageInstruction = isEnglish
+        ? "Strictly generate the entire text values response (ai_diet_tag, ai_reason, and recommended_menus names/descriptions) in English language."
+        : "Tolong generate seluruh nilai respon teks (ai_diet_tag, ai_reason, dan recommended_menus) dalam Bahasa Indonesia secara konsisten.";
+
     // 2. Susun Prompt (Instruksi) Cerdas untuk AI
     final prompt =
         '''
     Anda adalah seorang Ahli Gizi Digital profesional untuk aplikasi MacroFit.
     Tugas Anda adalah menganalisis apakah restoran berikut cocok untuk program diet pengguna dan memberikan 3 rekomendasi menu yang paling tepat secara ilmiah.
+
+    $languageInstruction
 
     Data Pengguna:
     - Target Kalori Harian: $userTargetCalorie kkal
@@ -38,10 +47,10 @@ class AIRecommendationService {
     {
       "is_suitable": true atau false (apakah restoran ini mendukung program diet pengguna),
       "match_score": angka 1 sampai 5 (skor kecocokan restoran dengan diet pengguna),
-      "ai_diet_tag": "string pendek kategori diet yang disesuaikan oleh AI",
-      "ai_reason": "alasan singkat mengapa AI merekomendasikan atau tidak merekomendasikan restoran ini bagi pengguna",
+      "ai_diet_tag": "${isEnglish ? 'Short diet category name by AI' : 'string pendek kategori diet yang disesuaikan oleh AI'}",
+      "ai_reason": "${isEnglish ? 'Short reason why AI recommends or does not recommend this restaurant' : 'alasan singkat mengapa AI merekomendasikan atau tidak merekomendasikan restoran ini bagi pengguna'}",
       "recommended_menus": [
-        "Nama Menu Rekomendasi AI 1 (berikan estimasi makronutrisi singkat)",
+        "${isEnglish ? 'Recommended Menu Name 1 (provide brief macro estimate)' : 'Nama Menu Rekomendasi AI 1 (berikan estimasi makronutrisi singkat)'}",
         "Nama Menu Rekomendasi AI 2",
         "Nama Menu Rekomendasi AI 3"
       ]
@@ -53,7 +62,6 @@ class AIRecommendationService {
       final response = await model.generateContent(content);
 
       if (response.text != null) {
-        // Dekode hasil string JSON dari Gemini menjadi Map Dart
         return json.decode(response.text!);
       }
       return {'error': 'Gagal mendapatkan respons dari AI'};
@@ -62,11 +70,13 @@ class AIRecommendationService {
     }
   }
 
-  // FUNGSI BARU: Analisis Massal List Restoran menggunakan Gemini 3.1 Flash Lite
+  // FUNGSI: Analisis Massal List Restoran menggunakan Gemini 3.1 Flash Lite
   Future<List<dynamic>> filterRestaurantListAI({
     required List<Map<String, dynamic>> rawGoogleRestaurants,
     required double userTargetCalorie,
     required bool isBulking,
+    required bool
+    isEnglish, // 🟢 PARAMETER BARU: Mendeteksi status bahasa aktif saat ini
   }) async {
     if (_apiKey.isEmpty || rawGoogleRestaurants.isEmpty) return [];
 
@@ -76,7 +86,6 @@ class AIRecommendationService {
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
 
-    // Konversi list restoran menjadi string ringkas agar prompt tidak kepanjangan
     final List<Map<String, dynamic>> simplifiedList = rawGoogleRestaurants
         .map(
           (res) => {
@@ -87,9 +96,16 @@ class AIRecommendationService {
         )
         .toList();
 
+    // 🟢 SINKRONISASI BAHASA PROMPT BULK FILTER: Mengatur instruksi bahasa pembuatan label diet kustom
+    String bulkLanguageInstruction = isEnglish
+        ? "Strictly provide the 'ai_diet_tag' text value description in English language (e.g., 'High Protein', 'Low Calories', 'Clean Eating')."
+        : "Tolong berikan deskripsi nilai teks 'ai_diet_tag' dalam Bahasa Indonesia secara konsisten (Contoh: 'Tinggi Protein', 'Rendah Kalori', 'Bersih Alami').";
+
     final prompt =
         '''
     Anda adalah pakar nutrisi digital MacroFit. Tugas Anda adalah menganalisis daftar restoran dari Google Maps berikut dan menentukan apakah cocok dengan profil diet pengguna.
+
+    $bulkLanguageInstruction
 
     Profil Diet Pengguna:
     - Target Energi Harian: $userTargetCalorie kkal
@@ -103,7 +119,7 @@ class AIRecommendationService {
       {
         "place_id": "salin_place_id_restoran_terkait",
         "is_suitable": true atau false (apakah sangat direkomendasikan untuk program diet user),
-        "ai_diet_tag": "Nama label diet pendek kustom dari Anda, misal: Tinggi Protein / Rendah Kalori / Bersih Alami"
+        "ai_diet_tag": "${isEnglish ? 'Short custom diet label from you' : 'Nama label diet pendek kustom dari Anda, misal: Tinggi Protein / Rendah Kalori / Bersih Alami'}"
       }
     ]
     ''';

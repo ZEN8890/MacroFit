@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'reply_text_highlighter.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class CommentCard extends StatelessWidget {
   final String commentId;
@@ -50,72 +51,83 @@ class CommentCard extends StatelessWidget {
     final String parentUsername = commentData['parent_username'] ?? '';
     final String parentContent = commentData['parent_content'] ?? '';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 🟢 Menampilkan Foto Profil
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: theme.primaryColor.withOpacity(0.15),
-            backgroundImage: profileImageUrl.isNotEmpty
-                ? NetworkImage(profileImageUrl)
-                : null,
-            child: profileImageUrl.isEmpty
-                ? const Icon(Icons.person, size: 16)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🟢 Visual Membalas ke @User: "..."
-                if (parentUsername.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "Membalas ke @$parentUsername: \"${_getPreview(parentContent)}\"",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: theme.primaryColor,
-                        fontStyle: FontStyle.italic,
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus visual kartu ulasan dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Menampilkan Foto Profil
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: theme.primaryColor.withOpacity(0.15),
+                backgroundImage: profileImageUrl.isNotEmpty
+                    ? NetworkImage(profileImageUrl)
+                    : null,
+                child: profileImageUrl.isEmpty
+                    ? const Icon(Icons.person, size: 16)
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Visual Membalas ke @User: "..." (Dinamis Dwi-Bahasa)
+                    if (parentUsername.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          englishActive
+                              ? "Replying to @$parentUsername: \"${_getPreview(parentContent)}\""
+                              : "Membalas ke @$parentUsername: \"${_getPreview(parentContent)}\"",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.primaryColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
-                  ),
-
-                Text(
-                  displayName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
+                    const SizedBox(height: 2),
+                    ReplyTextHighlighter(text: content),
+                    TextButton(
+                      onPressed: () =>
+                          onReplyTrigger(displayName.replaceAll('@', '')),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 20),
+                      ),
+                      child: Text(
+                        englishActive ? "Reply" : "Balas",
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                ReplyTextHighlighter(text: content),
-                TextButton(
-                  onPressed: () =>
-                      onReplyTrigger(displayName.replaceAll('@', '')),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(50, 20),
-                  ),
-                  child: const Text("Reply", style: TextStyle(fontSize: 11)),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

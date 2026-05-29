@@ -2,7 +2,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
-import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
+import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class ImagePreviewPage extends StatefulWidget {
   final List<String> imageUrls;
@@ -61,16 +62,28 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       if (mounted) Navigator.pop(context); // Tutup loading dialog
 
       if (mounted) {
-        // 🟢 GANTI: SnackBar ke Notify.success
-        Notify.success(context, 'Foto berhasil disimpan ke galeri!');
+        // 🟢 DINAMIS MULTI-BAHASA PADA NOTIFIKASI SUKSES SIMPAN
+        Notify.success(
+          context,
+          isEnglishNotifier.value
+              ? 'Image saved to gallery successfully!'
+              : 'Foto berhasil disimpan ke galeri!',
+        );
       }
     } catch (e) {
       if (mounted) Navigator.pop(context); // Tutup loading dialog jika gagal
 
       if (mounted) {
-        // 🟢 GANTI: SnackBar ke Notify.error
-        Notify.error(context, 'Gagal mengunduh foto: $e');
+        // 🟢 DINAMIS MULTI-BAHASA PADA NOTIFIKASI GAGAL SIMPAN
+        Notify.error(
+          context,
+          isEnglishNotifier.value
+              ? 'Failed to download image: $e'
+              : 'Gagal mengunduh foto: $e',
+        );
       }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
     } finally {
       if (mounted) {
         setState(() => _isDownloading = false);
@@ -86,57 +99,63 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download_rounded, size: 26),
-            onPressed: _isDownloading
-                ? null
-                : () => _downloadImage(widget.imageUrls[_currentIndex]),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.imageUrls.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          return Center(
-            child: InteractiveViewer(
-              clipBehavior: Clip.none,
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: Image.network(
-                widget.imageUrls[index],
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  );
-                },
-              ),
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman pratinjau gambar dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
             ),
-          );
-        },
-      ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.download_rounded, size: 26),
+                onPressed: _isDownloading
+                    ? null
+                    : () => _downloadImage(widget.imageUrls[_currentIndex]),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          body: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return Center(
+                child: InteractiveViewer(
+                  clipBehavior: Clip.none,
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    widget.imageUrls[index],
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

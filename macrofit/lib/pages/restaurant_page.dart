@@ -1,12 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/location_services.dart';
 import '../services/restaurant_services.dart';
 import '../widgets/restaurant_card.dart';
 import '../services/ai_recommendation_services.dart';
-import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // Mengikat notifier global state
 
 class RestaurantPage extends StatefulWidget {
   const RestaurantPage({super.key});
@@ -46,7 +46,7 @@ class _RestaurantPageState extends State<RestaurantPage> {
             .doc(user.uid)
             .get();
         if (userDoc.exists && userDoc.data() != null) {
-          userTargetCalorie = (userDoc.data()!['daily_calorie_target'] ?? 2000)
+          userTargetCalorie = (userDoc.data()!['target_calories'] ?? 2000)
               .toDouble();
         }
       }
@@ -65,6 +65,7 @@ class _RestaurantPageState extends State<RestaurantPage> {
             rawGoogleRestaurants: googleRawResults,
             userTargetCalorie: userTargetCalorie,
             isBulking: isBulking,
+            isEnglish: isEnglishNotifier.value,
           );
 
       List<Map<String, dynamic>> tempRestaurants = [];
@@ -105,7 +106,12 @@ class _RestaurantPageState extends State<RestaurantPage> {
             'lng': resLng,
             'recommended': isHighlyRecommended,
             'place_id': element['place_id'],
-            'address': element['address'] ?? 'Alamat tidak tersedia',
+            // 🟢 TRANSLASI ALAMAT FALLBACK KOSONG
+            'address':
+                element['address'] ??
+                (isEnglishNotifier.value
+                    ? 'Address not available'
+                    : 'Alamat tidak tersedia'),
           });
         }
       }
@@ -137,90 +143,108 @@ class _RestaurantPageState extends State<RestaurantPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Restoran Terdekat (Google API)",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        // 🟢 OPTIMASI: Tombol refresh lama di AppBar resmi DIHAPUS agar UI konsisten ditarik
-      ),
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Mencari restoran resmi Google di sekitarmu..."),
-                ],
-              ),
-            )
-          : _errorMessage != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                key: const Key('error_state'),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.gpp_bad_outlined,
-                      size: 64,
-                      color: colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: colorScheme.error),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _fetchNearbyRestaurants,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text("Coba Lagi"),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : _dynamicRestaurants.isEmpty
-          // 🟢 OPTIMASI STATE KOSONG: Dibungkus SingleChildScrollView + AlwaysScrollableScrollPhysics agar layar kosong pun tetap bisa ditarik ke bawah untuk refresh data
-          ? RefreshIndicator(
-              color: theme.primaryColor,
-              onRefresh: _fetchNearbyRestaurants,
-              child: const SingleChildScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                child: SizedBox(
-                  height: 300,
-                  child: Center(
-                    child: Text(
-                      "Tidak ada tempat makan terdeteksi dalam radius 3 km.",
-                      textAlign: TextAlign.center,
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman Restoran dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              // 🟢 TITLE APPBAR DWI-BAHASA
+              englishActive
+                  ? "Nearby Restaurants"
+                  : "Restoran Terdekat (Google API)",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: _isLoading
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        // 🟢 INDIKATOR LOADING DWI-BAHASA
+                        englishActive
+                            ? "Finding official Google restaurants nearby..."
+                            : "Mencari restoran resmi Google di sekitarmu...",
+                      ),
+                    ],
+                  ),
+                )
+              : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    key: const Key('error_state'),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.gpp_bad_outlined,
+                          size: 64,
+                          color: colorScheme.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colorScheme.error),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: _fetchNearbyRestaurants,
+                          icon: const Icon(Icons.refresh),
+                          label: Text(
+                            englishActive ? "Try Again" : "Coba Lagi",
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-            )
-          // 🟢 OPTIMASI LIST VIEW KONSISTEN: Tarik ke bawah langsung menembus koordinat GPS & hitung ulang diet AI Gemini terbaru
-          : RefreshIndicator(
-              color: theme.primaryColor,
-              onRefresh: _fetchNearbyRestaurants,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20),
-                physics:
-                    const AlwaysScrollableScrollPhysics(), // Pengunci kekenyalan tarikan gesture
-                itemCount: _dynamicRestaurants.length,
-                itemBuilder: (context, index) {
-                  final res = _dynamicRestaurants[index];
-                  double distance = res['distance'] ?? 0.0;
+                )
+              : _dynamicRestaurants.isEmpty
+              ? RefreshIndicator(
+                  color: theme.primaryColor,
+                  onRefresh: _fetchNearbyRestaurants,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: 300,
+                      child: Center(
+                        child: Text(
+                          // 🟢 FALLBACK RADIUS DWI-BAHASA
+                          englishActive
+                              ? "No restaurants detected within a 3 km radius."
+                              : "Tidak ada tempat makan terdeteksi dalam radius 3 km.",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  color: theme.primaryColor,
+                  onRefresh: _fetchNearbyRestaurants,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: _dynamicRestaurants.length,
+                    itemBuilder: (context, index) {
+                      final res = _dynamicRestaurants[index];
+                      double distance = res['distance'] ?? 0.0;
 
-                  return RestaurantCard(restaurant: res, distance: distance);
-                },
-              ),
-            ),
+                      return RestaurantCard(
+                        restaurant: res,
+                        distance: distance,
+                      );
+                    },
+                  ),
+                ),
+        );
+      },
     );
   }
 }

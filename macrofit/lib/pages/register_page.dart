@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_services.dart';
-import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
+import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -42,21 +42,24 @@ class _RegisterPageState extends State<RegisterPage> {
         .trim()
         .toLowerCase()
         .replaceAll(' ', '');
+    final bool isEnglish = isEnglishNotifier.value;
 
     if (email.isEmpty ||
         password.isEmpty ||
         firstName.isEmpty ||
-        lastName.isEmpty ||
         usernameHandle.isEmpty) {
-      // 🟢 GANTI: ScaffoldMessenger ke Notify.error
-      Notify.error(context, "Form tidak boleh ada yang kosong");
+      Notify.error(
+        context,
+        isEnglish
+            ? "Fields cannot be empty"
+            : "Form tidak boleh ada yang kosong",
+      );
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // 🟢 LOGIKA VALIDASI: Cek keunikan username
       final usernameQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('username_handle', isEqualTo: usernameHandle)
@@ -65,8 +68,12 @@ class _RegisterPageState extends State<RegisterPage> {
       if (usernameQuery.docs.isNotEmpty) {
         if (mounted) {
           setState(() => _isLoading = false);
-          // 🟢 GANTI: ScaffoldMessenger ke Notify.error
-          Notify.error(context, "Username sudah terdaftar! Gunakan yang lain.");
+          Notify.error(
+            context,
+            isEnglish
+                ? "Username already taken! Try another one."
+                : "Username sudah terdaftar! Gunakan yang lain.",
+          );
         }
         return;
       }
@@ -80,8 +87,11 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (result == "success") {
-        // 🟢 GANTI: ScaffoldMessenger ke Notify.success
-        if (mounted) Notify.success(context, "Registrasi berhasil!");
+        if (mounted)
+          Notify.success(
+            context,
+            isEnglish ? "Registration successful!" : "Registrasi berhasil!",
+          );
 
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
@@ -90,8 +100,12 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         if (mounted) {
           setState(() => _isLoading = false);
-          // 🟢 GANTI: ScaffoldMessenger ke Notify.error
-          Notify.error(context, result ?? "Registrasi gagal");
+          Notify.error(
+            context,
+            result == "Registrasi gagal" && isEnglish
+                ? "Registration failed"
+                : (result ?? "Registrasi gagal"),
+          );
         }
       }
     } catch (e) {
@@ -104,101 +118,117 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Registration")),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              TextField(
-                controller: _firstNameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: "First name",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _lastNameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: "Last name",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _usernameController,
-                keyboardType: TextInputType.text,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                decoration: const InputDecoration(
-                  labelText: "Username",
-                  prefixText: "@ ",
-                  prefixStyle: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                  border: OutlineInputBorder(),
-                  helperText:
-                      "Username tidak boleh memakai spasi dan wajib unik.",
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _passwordController,
-                obscureText: !_isPasswordVisible,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    onPressed: () => setState(
-                      () => _isPasswordVisible = !_isPasswordVisible,
-                    ),
-                    icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ElevatedButton(
-                        onPressed: handleRegister,
-                        child: const Text("Register"),
-                      ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman Register dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(englishActive ? "Registration" : "Pendaftaran"),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
                 children: [
-                  const Text("Already have an account?"),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.pushReplacementNamed(context, "/login"),
-                    child: const Text("Login"),
+                  TextField(
+                    controller: _firstNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: englishActive ? "First name" : "Nama depan",
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _lastNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      // 🟢 LOGIKA STRUKTUR TEKS PILIHAN OPSIONAL DWI-BAHASA
+                      labelText: englishActive
+                          ? "Last name (Optional)"
+                          : "Nama belakang (Opsional)",
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _usernameController,
+                    keyboardType: TextInputType.text,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      labelText: englishActive ? "Username" : "Nama pengguna",
+                      prefixText: "@ ",
+                      prefixStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                      border: const OutlineInputBorder(),
+                      helperText: englishActive
+                          ? "Username spaces are not allowed and must be unique."
+                          : "Username tidak boleh memakai spasi dan wajib unik.",
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: "Email",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: !_isPasswordVisible,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        ),
+                        icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: handleRegister,
+                            child: Text(englishActive ? "Register" : "Daftar"),
+                          ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        englishActive
+                            ? "Already have an account? "
+                            : "Sudah memiliki akun? ",
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pushReplacementNamed(context, "/login"),
+                        child: Text(englishActive ? "Login" : "Masuk"),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

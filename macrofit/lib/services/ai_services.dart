@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart'; // Tambahkan untuk debugPrint
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AIService {
+  // 🟢 MODIFIKASI: _basePrompt diubah menjadi instruksi inti, bahasa diatur dinamis di bawah
   static const String _basePrompt = '''
   Tugas Anda adalah menganalisis objek makanan dan minuman dalam gambar atau teks.
   
@@ -30,7 +30,7 @@ class AIService {
     "water_ml": angka
   }
   
-  Gunakan bahasa Indonesia. Kembalikan HANYA JSON objek tunggal { }. 
+  Kembalikan HANYA JSON objek tunggal { }. 
   DILARANG menggunakan format List [ ] atau menambahkan teks penjelasan di luar JSON.
 ''';
 
@@ -47,27 +47,47 @@ class AIService {
     );
   }
 
-  Future<Map<String, dynamic>> analyzeFood(String input) async {
+  // 🟢 UPDATE PARAMETER: Menambahkan isEnglish wajib
+  Future<Map<String, dynamic>> analyzeFood(
+    String input, {
+    required bool isEnglish,
+  }) async {
     if (input.isEmpty) return {};
     final model = _getModel();
-    final prompt = '$_basePrompt. Input: "$input"';
-    return await _executeRequest(model, [Content.text(prompt)]);
+
+    // Sinkronisasi instruksi bahasa prompt teks
+    String languageInstruction = isEnglish
+        ? "Strictly output the 'food_name' string value in English language."
+        : "Gunakan bahasa Indonesia untuk nilai properti 'food_name'.";
+
+    final prompt = '$_basePrompt\n$languageInstruction\nInput: "$input"';
+    return await _executeRequest(model, [Content.text(prompt)], isEnglish);
   }
 
-  Future<Map<String, dynamic>> analyzeFoodImage(Uint8List imageBytes) async {
+  // 🟢 UPDATE PARAMETER: Menambahkan isEnglish wajib
+  Future<Map<String, dynamic>> analyzeFoodImage(
+    Uint8List imageBytes, {
+    required bool isEnglish,
+  }) async {
     final model = _getModel();
+
+    // Sinkronisasi instruksi bahasa prompt gambar
+    String languageInstruction = isEnglish
+        ? "Strictly output the 'food_name' string value in English language."
+        : "Gunakan bahasa Indonesia untuk nilai properti 'food_name'.";
+
+    final fullPrompt = '$_basePrompt\n$languageInstruction';
+
     final content = [
-      Content.multi([
-        TextPart(_basePrompt),
-        DataPart('image/jpeg', imageBytes),
-      ]),
+      Content.multi([TextPart(fullPrompt), DataPart('image/jpeg', imageBytes)]),
     ];
-    return await _executeRequest(model, content);
+    return await _executeRequest(model, content, isEnglish);
   }
 
   Future<Map<String, dynamic>> _executeRequest(
     GenerativeModel model,
     List<Content> content,
+    bool isEnglish,
   ) async {
     try {
       final response = await model
@@ -84,7 +104,6 @@ class AIService {
         final dynamic decoded = jsonDecode(cleanText);
         Map<String, dynamic> data;
 
-        // SOLUSI ERROR: Cek apakah hasil adalah List atau Map
         if (decoded is List) {
           if (decoded.isEmpty) return {};
           data = decoded.first as Map<String, dynamic>;
@@ -98,7 +117,9 @@ class AIService {
 
         return {
           'is_food': true,
-          'food_name': data['food_name'] ?? 'Menu Terdeteksi',
+          'food_name':
+              data['food_name'] ??
+              (isEnglish ? 'Detected Menu' : 'Menu Terdeteksi'),
           'protein': (data['protein'] ?? 0).toDouble(),
           'carbs': (data['carbs'] ?? 0).toDouble(),
           'fats': (data['fats'] ?? 0).toDouble(),
@@ -108,7 +129,11 @@ class AIService {
         };
       }
     } on TimeoutException catch (_) {
-      return {'error': 'Koneksi terlalu lambat, silakan coba lagi.'};
+      return {
+        'error': isEnglish
+            ? 'Connection too slow, please try again.'
+            : 'Koneksi terlalu lambat, silakan coba lagi.',
+      };
     } catch (e) {
       debugPrint("AI Error Detail: $e");
     }

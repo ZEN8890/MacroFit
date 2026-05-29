@@ -7,7 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/post_list_stream.dart';
-import '../utils/notification_helper.dart'; // Import helper notifikasi
+import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class ForumPage extends StatefulWidget {
   const ForumPage({super.key});
@@ -20,7 +21,7 @@ class _ForumPageState extends State<ForumPage> {
   final TextEditingController _postController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  List<XFile> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
   final StorageService _storageService = StorageService();
   bool _isPosting = false;
@@ -81,12 +82,24 @@ class _ForumPageState extends State<ForumPage> {
         _isPosting = false;
       });
 
-      if (mounted) Notify.success(context, 'Thread berhasil dibagikan!');
+      if (mounted) {
+        Notify.success(
+          context,
+          isEnglishNotifier.value
+              ? 'Thread shared successfully!'
+              : 'Thread berhasil dibagikan!',
+        );
+      }
     } catch (e) {
       debugPrint("Error creating post: $e");
       if (mounted) {
         setState(() => _isPosting = false);
-        Notify.error(context, 'Gagal mengirim postingan: $e');
+        Notify.error(
+          context,
+          isEnglishNotifier.value
+              ? 'Failed to create post: $e'
+              : 'Gagal mengirim postingan: $e',
+        );
       }
     }
   }
@@ -112,6 +125,8 @@ class _ForumPageState extends State<ForumPage> {
   }
 
   Future<void> _deletePost(String postId, String? imageUrl) async {
+    final bool currentLangEn = isEnglishNotifier.value;
+
     bool confirmDelete =
         await showDialog(
           context: context,
@@ -119,21 +134,26 @@ class _ForumPageState extends State<ForumPage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Text(
-              'Hapus Thread',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            title: Text(
+              currentLangEn ? 'Delete Thread' : 'Hapus Thread',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            content: const Text(
-              'Apakah Anda yakin ingin menghapus thread ini?',
+            content: Text(
+              currentLangEn
+                  ? 'Are you sure you want to delete this thread?'
+                  : 'Apakah Anda yakin ingin menghapus thread ini?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Batal'),
+                child: Text(currentLangEn ? 'Cancel' : 'Batal'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: Text(
+                  currentLangEn ? 'Delete' : 'Hapus',
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -151,9 +171,21 @@ class _ForumPageState extends State<ForumPage> {
         }
       }
       await _firestore.collection('posts').doc(postId).delete();
-      if (mounted) Notify.success(context, "Thread berhasil dihapus");
+      if (mounted) {
+        Notify.success(
+          context,
+          currentLangEn
+              ? "Thread deleted successfully"
+              : "Thread berhasil dihapus",
+        );
+      }
     } catch (e) {
-      if (mounted) Notify.error(context, 'Gagal menghapus: $e');
+      if (mounted) {
+        Notify.error(
+          context,
+          currentLangEn ? 'Failed to delete thread: $e' : 'Gagal menghapus: $e',
+        );
+      }
     }
   }
 
@@ -164,9 +196,17 @@ class _ForumPageState extends State<ForumPage> {
         int total = _selectedImages.length + images.length;
         if (total > 5) {
           int sisa = 5 - _selectedImages.length;
-          if (sisa > 0)
+          if (sisa > 0) {
             setState(() => _selectedImages.addAll(images.take(sisa)));
-          if (mounted) Notify.error(context, 'Maksimal 5 foto!');
+          }
+          if (mounted) {
+            Notify.error(
+              context,
+              isEnglishNotifier.value
+                  ? 'Maximum 5 photos!'
+                  : 'Maksimal 5 foto!',
+            );
+          }
         } else {
           setState(() => _selectedImages.addAll(images));
         }
@@ -181,109 +221,119 @@ class _ForumPageState extends State<ForumPage> {
     final currentUser = _auth.currentUser;
     final theme = Theme.of(context);
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const Material(
-                child: ListTile(
-                  title: Text(
-                    "MacroFit Community",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman Forum Utama dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Material(
+                    child: ListTile(
+                      title: Text(
+                        englishActive
+                            ? "MacroFit Community"
+                            : "Komunitas MacroFit",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const TabBar(
-                tabs: [
-                  Tab(
-                    text: 'Semua Forum',
-                    icon: Icon(Icons.forum_outlined, size: 20),
+                  TabBar(
+                    tabs: [
+                      Tab(
+                        text: englishActive ? 'All Forums' : 'Semua Forum',
+                        icon: const Icon(Icons.forum_outlined, size: 20),
+                      ),
+                      Tab(
+                        text: englishActive ? 'My Threads' : 'Thread Saya',
+                        icon: const Icon(
+                          Icons.assignment_ind_outlined,
+                          size: 20,
+                        ),
+                      ),
+                    ],
                   ),
-                  Tab(
-                    text: 'Thread Saya',
-                    icon: Icon(Icons.assignment_ind_outlined, size: 20),
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: _firestore
+                        .collection('users')
+                        .doc(currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, userSnapshot) {
+                      String avatar =
+                          (userSnapshot.hasData && userSnapshot.data!.exists)
+                          ? (userSnapshot.data!.data()
+                                    as Map)['profile_picture'] ??
+                                ''
+                          : '';
+                      return PostInputSection(
+                        controller: _postController,
+                        selectedImages: _selectedImages,
+                        currentUserImageUrl: avatar,
+                        onPickImage: _pickImage,
+                        isPosting: _isPosting,
+                        onCreatePost: _createPost,
+                        onClearImage: () =>
+                            setState(() => _selectedImages.clear()),
+                        onRemoveSpecificImage: (i) =>
+                            setState(() => _selectedImages.removeAt(i)),
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        RefreshIndicator(
+                          color: Theme.of(context).primaryColor,
+                          onRefresh: () async {
+                            setState(() {
+                              _forumRefreshKey = DateTime.now()
+                                  .millisecondsSinceEpoch
+                                  .toString();
+                            });
+                          },
+                          child: PostListStream(
+                            key: ValueKey('all_$_forumRefreshKey'),
+                            filterUid: null,
+                            firestore: _firestore,
+                            auth: _auth,
+                            onDeletePost: _deletePost,
+                            onLikeToggle: _toggleLike,
+                          ),
+                        ),
+
+                        RefreshIndicator(
+                          color: Theme.of(context).primaryColor,
+                          onRefresh: () async {
+                            setState(() {
+                              _forumRefreshKey = DateTime.now()
+                                  .millisecondsSinceEpoch
+                                  .toString();
+                            });
+                          },
+                          child: PostListStream(
+                            key: ValueKey(
+                              'my_${currentUser?.uid}_$_forumRefreshKey',
+                            ),
+                            filterUid: currentUser?.uid,
+                            firestore: _firestore,
+                            auth: _auth,
+                            onDeletePost: _deletePost,
+                            onLikeToggle: _toggleLike,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              StreamBuilder<DocumentSnapshot>(
-                stream: _firestore
-                    .collection('users')
-                    .doc(currentUser?.uid)
-                    .snapshots(),
-                builder: (context, userSnapshot) {
-                  String avatar =
-                      (userSnapshot.hasData && userSnapshot.data!.exists)
-                      ? (userSnapshot.data!.data() as Map)['profile_picture'] ??
-                            ''
-                      : '';
-                  return PostInputSection(
-                    controller: _postController,
-                    selectedImages: _selectedImages,
-                    currentUserImageUrl: avatar,
-                    onPickImage: _pickImage,
-                    isPosting: _isPosting,
-                    onCreatePost: _createPost,
-                    onClearImage: () => setState(() => _selectedImages.clear()),
-                    onRemoveSpecificImage: (i) =>
-                        setState(() => _selectedImages.removeAt(i)),
-                  );
-                },
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    // 🟢 Tambahkan RefreshIndicator di sini
-                    RefreshIndicator(
-                      color: Theme.of(context).primaryColor,
-                      onRefresh: () async {
-                        // Trigger pembaruan dengan mengubah key (ini akan me-rebuild StreamBuilder)
-                        setState(() {
-                          _forumRefreshKey = DateTime.now()
-                              .millisecondsSinceEpoch
-                              .toString();
-                        });
-                      },
-                      child: PostListStream(
-                        key: ValueKey('all_$_forumRefreshKey'),
-                        filterUid: null,
-                        firestore: _firestore,
-                        auth: _auth,
-                        onDeletePost: _deletePost,
-                        onLikeToggle: _toggleLike,
-                      ),
-                    ),
-
-                    // Lakukan hal yang sama untuk tab kedua
-                    RefreshIndicator(
-                      color: Theme.of(context).primaryColor,
-                      onRefresh: () async {
-                        setState(() {
-                          _forumRefreshKey = DateTime.now()
-                              .millisecondsSinceEpoch
-                              .toString();
-                        });
-                      },
-                      child: PostListStream(
-                        key: ValueKey(
-                          'my_${currentUser?.uid}_$_forumRefreshKey',
-                        ),
-                        filterUid: currentUser?.uid,
-                        firestore: _firestore,
-                        auth: _auth,
-                        onDeletePost: _deletePost,
-                        onLikeToggle: _toggleLike,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

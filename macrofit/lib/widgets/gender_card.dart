@@ -19,6 +19,12 @@ class GenderCard extends StatelessWidget {
     // Mengambil skema warna dari tema aktif
     final colorScheme = Theme.of(context).colorScheme;
 
+    // 🟢 LOGIKA WARNA PINKKUSTOM: Jika kartu ini adalah kartu Female, gunakan warna pink.
+    // Jika bukan (misal Male), tetap gunakan warna tema utama aplikasi (colorScheme.primary).
+    final Color activeColor = (label == "Female")
+        ? Colors.pink
+        : colorScheme.primary;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap_gender,
@@ -28,12 +34,14 @@ class GenderCard extends StatelessWidget {
           decoration: BoxDecoration(
             // Warna background adaptif
             color: isSelected
-                ? colorScheme.primary.withOpacity(0.1)
+                ? activeColor.withOpacity(0.1) // 🟢 Menggunakan activeColor
                 : colorScheme.surface,
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
-              // Outline adaptif (akan gelap di dark mode)
-              color: isSelected ? colorScheme.primary : colorScheme.outline,
+              // Outline adaptif
+              color: isSelected
+                  ? activeColor
+                  : colorScheme.outline, // 🟢 Menggunakan activeColor
               width: 2,
             ),
           ),
@@ -44,7 +52,7 @@ class GenderCard extends StatelessWidget {
                 size: 40,
                 // Warna ikon adaptif
                 color: isSelected
-                    ? colorScheme.primary
+                    ? activeColor // 🟢 Menggunakan activeColor
                     : colorScheme.onSurface.withOpacity(0.4),
               ),
               const SizedBox(height: 10),
@@ -54,7 +62,7 @@ class GenderCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   // Warna teks adaptif
                   color: isSelected
-                      ? colorScheme.primary
+                      ? activeColor // 🟢 Menggunakan activeColor
                       : colorScheme.onSurface,
                 ),
               ),

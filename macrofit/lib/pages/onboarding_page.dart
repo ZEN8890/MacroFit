@@ -8,7 +8,10 @@ import '../widgets/activity_card.dart';
 import '../widgets/goal_card.dart';
 import '../models/nutrition_model.dart';
 import 'home_page.dart';
-import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
+import '../utils/notification_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../navigation_menu.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -20,11 +23,13 @@ class OnboardingPage extends StatefulWidget {
 class ActivityOption {
   final String title;
   final String description;
+  final String descriptionEn; // 🟢 Tambahan translasi deskripsi aktivitas
   final double value;
 
   ActivityOption({
     required this.title,
     required this.description,
+    required this.descriptionEn,
     required this.value,
   });
 }
@@ -33,34 +38,42 @@ final List<ActivityOption> activities = [
   ActivityOption(
     title: "Sedentary",
     description: "Banyak duduk, jarang olahraga (pekerja kantor/mahasiswa)",
+    descriptionEn: "Mainly sitting, rarely exercise (office worker/student)",
     value: 1.2,
   ),
   ActivityOption(
     title: "Lightly Active",
     description: "Olahraga ringan 1-3 kali seminggu",
+    descriptionEn: "Light exercise 1-3 times a week",
     value: 1.375,
   ),
   ActivityOption(
     title: "Moderately Active",
     description: "Olahraga intensitas sedang 3-5 kali seminggu",
+    descriptionEn: "Moderate exercise 3-5 times a week",
     value: 1.55,
   ),
   ActivityOption(
     title: "Very Active",
     description: "Olahraga berat 6-7 kali seminggu atau kerja fisik",
+    descriptionEn: "Heavy exercise 6-7 times a week or physical job",
     value: 1.725,
   ),
 ];
 
 class GoalOption {
   final String title;
+  final String titleEn; // 🟢 Tambahan translasi judul target
   final String subtitle;
+  final String subtitleEn; // 🟢 Tambahan translasi sub-judul target
   final IconData icon;
   final String code;
 
   GoalOption({
     required this.title,
+    required this.titleEn,
     required this.subtitle,
+    required this.subtitleEn,
     required this.icon,
     required this.code,
   });
@@ -69,31 +82,41 @@ class GoalOption {
 final List<GoalOption> dietGoals = [
   GoalOption(
     title: "Menurunkan Berat Badan",
+    titleEn: "Weight Loss",
     subtitle: "Fokus pada defisit kalori dan pembakaran lemak.",
+    subtitleEn: "Focus on calorie deficit and fat burning.",
     icon: Icons.trending_down,
     code: "Menurunkan Berat Badan",
   ),
   GoalOption(
     title: "Menaikkan Massa Otot",
+    titleEn: "Gain Muscle",
     subtitle: "Surplus kalori dengan asupan protein tinggi.",
+    subtitleEn: "Calorie surplus with high protein intake.",
     icon: Icons.fitness_center,
     code: "gain_muscle",
   ),
   GoalOption(
     title: "Gaya Hidup Sehat",
+    titleEn: "Healthy Lifestyle",
     subtitle: "Menjaga berat badan ideal dan kebugaran tubuh.",
+    subtitleEn: "Maintain ideal weight and body fitness.",
     icon: Icons.favorite,
     code: "healthy_lifestyle",
   ),
   GoalOption(
     title: "Diet Keto",
+    titleEn: "Keto Diet",
     subtitle: "Rendah karbohidrat dan tinggi lemak sehat.",
+    subtitleEn: "Low carbohydrates and high healthy fats.",
     icon: Icons.egg_alt,
     code: "keto_diet",
   ),
   GoalOption(
     title: "Vegetarian",
+    titleEn: "Vegetarian",
     subtitle: "Fokus pada sumber nutrisi berbasis nabati.",
+    subtitleEn: "Focus on plant-based nutrition sources.",
     icon: Icons.eco,
     code: "vegetarian",
   ),
@@ -103,6 +126,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   double? _selectedActivityValue;
+  bool _isSubmitting = false;
 
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
@@ -128,155 +152,186 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   void _submitData() async {
     final user = FirebaseAuth.instance.currentUser;
+    final bool isEnglish = isEnglishNotifier.value;
+
     if (user == null) {
-      Notify.error(context, "Sesi login berakhir, silakan login ulang");
+      Notify.error(
+        context,
+        isEnglish
+            ? "Session expired, please log in again"
+            : "Sesi login berakhir, silakan login ulang",
+      );
       return;
     }
+
+    debugPrint("DEBUG WRITER: Menyimpan ke dokumen ID: ${user.uid}");
 
     final int age = int.tryParse(_ageController.text) ?? 0;
     final double weight = double.tryParse(_weightController.text) ?? 0;
     final double height = double.tryParse(_heightController.text) ?? 0;
 
-    double bmr;
-    if (_selectedGender == "Male") {
-      bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-    } else {
-      bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+    if (age == 0 ||
+        weight == 0 ||
+        height == 0 ||
+        _selectedGender == null ||
+        _selectedDietCode == null) {
+      Notify.error(
+        context,
+        isEnglish ? "Please complete all fields" : "Mohon lengkapi semua data",
+      );
+      return;
     }
 
-    double tdee = bmr * (_selectedActivityValue ?? 1.2);
+    setState(() => _isSubmitting = true);
 
-    double goalCalories = tdee;
-    if (_selectedDietCode == 'Menurunkan Berat Badan') goalCalories -= 500;
-    if (_selectedDietCode == 'gain_muscle') goalCalories += 500;
+    double bmr = (_selectedGender == "Male")
+        ? 66.5 + (13.75 * weight) + (5.003 * height) - (6.75 * age)
+        : 655.1 + (9.563 * weight) + (1.85 * height) - (4.676 * age);
 
-    double sugarPercentage = (_selectedDietCode == 'keto_diet') ? 0.05 : 0.10;
-    double sugarGramCalculated = (goalCalories * sugarPercentage) / 4;
-    if (_selectedDietCode == 'keto_diet' && sugarGramCalculated > 25) {
-      sugarGramCalculated = 25;
+    double baseTdee = bmr * (_selectedActivityValue ?? 1.2);
+    int targetCalories;
+
+    switch (_selectedDietCode) {
+      case 'Menurunkan Berat Badan':
+        targetCalories = (baseTdee - 500).round();
+        break;
+      case 'gain_muscle':
+        targetCalories = (baseTdee + 400).round();
+        break;
+      case 'keto_diet':
+        targetCalories = (baseTdee - 200).round();
+        break;
+      case 'healthy_lifestyle':
+      case 'vegetarian':
+      default:
+        targetCalories = baseTdee.round();
+        break;
     }
 
-    double calculatedWaterTarget = weight * 33;
-    double proteinGram = (goalCalories * 0.25) / 4;
-    double carbsGram = (goalCalories * 0.45) / 4;
-    double fatsGram = (goalCalories * 0.30) / 9;
+    if (targetCalories < 1200) targetCalories = 1200;
 
-    final hasilNutrisi = NutritionModel(
-      targetCalMin: (goalCalories - 100).round(),
-      targetCalMax: (goalCalories + 100).round(),
-      proteinGram: proteinGram.round(),
-      carbsGram: carbsGram.round(),
-      fatsGram: fatsGram.round(),
-      sugarGram: sugarGramCalculated.round(),
-      waterMl: calculatedWaterTarget.round(),
-      dietCode: _selectedDietCode!,
-    );
+    int targetCarbs;
+    int targetProteins;
+    int targetFats;
+
+    switch (_selectedDietCode) {
+      case 'Menurunkan Berat Badan':
+        targetCarbs = ((targetCalories * 0.40) / 4).round();
+        targetProteins = ((targetCalories * 0.40) / 4).round();
+        targetFats = ((targetCalories * 0.20) / 9).round();
+        break;
+      case 'gain_muscle':
+        targetCarbs = ((targetCalories * 0.50) / 4).round();
+        targetProteins = ((targetCalories * 0.30) / 4).round();
+        targetFats = ((targetCalories * 0.20) / 9).round();
+        break;
+      case 'keto_diet':
+        targetCarbs = ((targetCalories * 0.05) / 4).round();
+        targetProteins = ((targetCalories * 0.25) / 4).round();
+        targetFats = ((targetCalories * 0.70) / 9).round();
+        break;
+      case 'healthy_lifestyle':
+      case 'vegetarian':
+      default:
+        targetCarbs = ((targetCalories * 0.55) / 4).round();
+        targetProteins = ((targetCalories * 0.20) / 4).round();
+        targetFats = ((targetCalories * 0.25) / 9).round();
+        break;
+    }
 
     try {
-      await DatabaseService().updateOnboardingData(
-        uid: user.uid,
-        age: age,
-        weight: weight,
-        height: height,
-        gender: _selectedGender!,
-        nutrition: hasilNutrisi,
-      );
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'age': age,
+        'weight': weight,
+        'height': height,
+        'gender': _selectedGender,
+        'activity_multiplier': _selectedActivityValue ?? 1.2,
+        'diet_code': _selectedDietCode,
+        'target_calories': targetCalories,
+        'target_carbs': targetCarbs,
+        'target_proteins': targetProteins,
+        'target_fats': targetFats,
+        'water_ml_target': (weight * 33).round(),
+        'sugar_gram_target': ((targetCalories * 0.10) / 4).round(),
+      }, SetOptions(merge: true));
 
       if (!mounted) return;
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(builder: (context) => const NavigationMenu()),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-      Notify.error(context, "Gagal menyimpan data: $e");
+      setState(() => _isSubmitting = false);
+      Notify.error(
+        context,
+        isEnglish ? "Failed to save: $e" : "Gagal menyimpan: $e",
+      );
     }
   }
 
-  // ... (Widget _buildPhysicalDataStep, _buildActivityStep, _buildGoalStep tetap sama)
-  // [Kode _buildPhysicalDataStep, _buildActivityStep, _buildGoalStep disisipkan di sini]
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: LinearProgressIndicator(
-                value: (_currentPage + 1) / 3,
-                backgroundColor: Theme.of(context).colorScheme.outline,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (int page) =>
-                    setState(() => _currentPage = page),
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPhysicalDataStep(),
-                  _buildActivityStep(),
-                  _buildGoalStep(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Sisa method _build...Step tetap menggunakan Notify.error jika validasi gagal
-  Widget _buildPhysicalDataStep() {
+  Widget _buildPhysicalDataStep(bool isEnglish) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Mari mulai dengan data fisik Anda",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Text(
+            isEnglish
+                ? "Let's start with your physical data"
+                : "Mari mulai dengan data fisik Anda",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
           Row(
             children: [
-              GenderCard(
-                label: "Male",
-                icon: Icons.male,
-                isSelected: _selectedGender == "Male",
-                onTap_gender: () => setState(() => _selectedGender = "Male"),
+              Expanded(
+                child: GenderCard(
+                  label: isEnglish ? "Male" : "Pria",
+                  icon: Icons.male,
+                  isSelected: _selectedGender == "Male",
+                  onTap_gender: () => setState(() => _selectedGender = "Male"),
+                ),
               ),
               const SizedBox(width: 20),
-              GenderCard(
-                label: "Female",
-                icon: Icons.female,
-                isSelected: _selectedGender == "Female",
-                onTap_gender: () => setState(() => _selectedGender = "Female"),
+              Expanded(
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    primaryColor: Colors.pink,
+                    colorScheme: Theme.of(
+                      context,
+                    ).colorScheme.copyWith(primary: Colors.pink),
+                  ),
+                  child: GenderCard(
+                    label: isEnglish ? "Female" : "Wanita",
+                    icon: Icons.female,
+                    isSelected: _selectedGender == "Female",
+                    onTap_gender: () =>
+                        setState(() => _selectedGender = "Female"),
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 30),
           CustomInputField(
-            label: "Umur",
+            label: isEnglish ? "Age" : "Umur",
             controller: _ageController,
-            suffix: "tahun",
+            suffix: isEnglish ? "years" : "tahun",
             icon: Icons.cake,
           ),
           const SizedBox(height: 20),
           CustomInputField(
-            label: "Berat Badan",
+            label: isEnglish ? "Weight" : "Berat Badan",
             controller: _weightController,
             suffix: "kg",
             icon: Icons.monitor_weight,
           ),
           const SizedBox(height: 20),
           CustomInputField(
-            label: "Tinggi Badan",
+            label: isEnglish ? "Height" : "Tinggi Badan",
             controller: _heightController,
             suffix: "cm",
             icon: Icons.height,
@@ -292,10 +347,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     _heightController.text.isNotEmpty) {
                   _nextPage();
                 } else {
-                  Notify.error(context, "Mohon lengkapi semua data");
+                  Notify.error(
+                    context,
+                    isEnglish
+                        ? "Please complete all fields"
+                        : "Mohon lengkapi semua data",
+                  );
                 }
               },
-              child: const Text("Lanjut"),
+              child: Text(isEnglish ? "Next" : "Lanjut"),
             ),
           ),
         ],
@@ -303,28 +363,26 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildActivityStep() {
+  Widget _buildActivityStep(bool isEnglish) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Seberapa aktif Anda?",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Text(
+            isEnglish ? "How active are you?" : "Seberapa aktif Anda?",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          ...activities
-              .map(
-                (act) => ActivityCard(
-                  title: act.title,
-                  description: act.description,
-                  isSelected: _selectedActivityValue == act.value,
-                  onSelected: () =>
-                      setState(() => _selectedActivityValue = act.value),
-                ),
-              )
-              .toList(),
+          ...activities.map(
+            (act) => ActivityCard(
+              title: act.title,
+              description: isEnglish ? act.descriptionEn : act.description,
+              isSelected: _selectedActivityValue == act.value,
+              onSelected: () =>
+                  setState(() => _selectedActivityValue = act.value),
+            ),
+          ),
           const SizedBox(height: 40),
           Row(
             children: [
@@ -334,14 +392,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                   ),
-                  child: const Text("Kembali"),
+                  child: Text(isEnglish ? "Back" : "Kembali"),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _selectedActivityValue != null ? _nextPage : null,
-                  child: const Text("Lanjut"),
+                  child: Text(isEnglish ? "Next" : "Lanjut"),
                 ),
               ),
             ],
@@ -351,29 +409,28 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildGoalStep() {
+  Widget _buildGoalStep(bool isEnglish) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Apa target nutrisi Anda?",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Text(
+            isEnglish
+                ? "What is your nutrition target?"
+                : "Apa target nutrisi Anda?",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 30),
-          ...dietGoals
-              .map(
-                (diet) => GoalCard(
-                  title: diet.title,
-                  subtitle: diet.subtitle,
-                  icon: diet.icon,
-                  isSelected: _selectedDietCode == diet.code,
-                  onTap_goal: () =>
-                      setState(() => _selectedDietCode = diet.code),
-                ),
-              )
-              .toList(),
+          ...dietGoals.map(
+            (diet) => GoalCard(
+              title: isEnglish ? diet.titleEn : diet.title,
+              subtitle: isEnglish ? diet.subtitleEn : diet.subtitle,
+              icon: diet.icon,
+              isSelected: _selectedDietCode == diet.code,
+              onTap_goal: () => setState(() => _selectedDietCode = diet.code),
+            ),
+          ),
           const SizedBox(height: 40),
           Row(
             children: [
@@ -383,27 +440,69 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                   ),
-                  child: const Text("Kembali"),
+                  child: Text(isEnglish ? "Back" : "Kembali"),
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: _selectedDietCode != null ? _submitData : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text(
-                    "Selesai",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _selectedDietCode != null
+                            ? _submitData
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(
+                          isEnglish ? "Finish" : "Selesai",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: LinearProgressIndicator(
+                    value: (_currentPage + 1) / 3,
+                    backgroundColor: Theme.of(context).colorScheme.outline,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (int page) =>
+                        setState(() => _currentPage = page),
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildPhysicalDataStep(englishActive),
+                      _buildActivityStep(englishActive),
+                      _buildGoalStep(englishActive),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

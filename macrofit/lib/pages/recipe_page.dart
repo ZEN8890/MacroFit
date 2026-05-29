@@ -10,6 +10,7 @@ import '../widgets/add_recipe_sheet.dart';
 import '../widgets/recipe_stream_view.dart';
 import '../services/storage_services.dart';
 import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class RecipePage extends StatefulWidget {
   const RecipePage({super.key});
@@ -31,7 +32,6 @@ class _RecipePageState extends State<RecipePage> {
 
   String get currentUserId => _auth.currentUser?.uid ?? '';
 
-  // 🟢 POSISI TEPAT: Pindahkan trigger key ke atas agar tidak ke-reset acak setiap kali set state internal dipicu
   String _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch.toString();
 
   final List<String> _dietOptions = [
@@ -46,24 +46,21 @@ class _RecipePageState extends State<RecipePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeRecipeData(); // 🟢 Panggil fungsi inisialisasi baru
+      _initializeRecipeData();
     });
   }
 
   Future<void> _initializeRecipeData() async {
-    // 1. Cek apakah ada resep AI di Firestore
     final aiRecipes = await _firestore
         .collection('recipes')
         .where('type', isEqualTo: 'AI')
         .limit(1)
         .get();
 
-    // 2. Jika tidak ada resep AI sama sekali, generate otomatis
     if (aiRecipes.docs.isEmpty) {
       await _generateAIRecipe(isAutoRefresh: true);
     }
 
-    // 3. Jalankan pengecekan limit harian
     await _checkDailyRefreshAndCounter();
   }
 
@@ -75,7 +72,7 @@ class _RecipePageState extends State<RecipePage> {
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
 
       final String? lastRefreshDate = prefs.getString('last_ai_recipe_refresh');
-      int? savedCounter = prefs.getInt('ai_recipe_click_counter');
+      final int? savedCounter = prefs.getInt('ai_recipe_click_counter');
 
       if (lastRefreshDate == null || lastRefreshDate != todayDate) {
         await _generateAIRecipe(isAutoRefresh: true);
@@ -101,7 +98,12 @@ class _RecipePageState extends State<RecipePage> {
   Future<void> _generateAIRecipe({bool isAutoRefresh = false}) async {
     if (!isAutoRefresh && _remainingCounter <= 0) {
       if (mounted) {
-        Notify.error(context, 'Batas limit harian habis!');
+        Notify.error(
+          context,
+          isEnglishNotifier.value
+              ? 'Daily generation limit reached!'
+              : 'Batas limit harian habis!',
+        );
       }
       return;
     }
@@ -147,6 +149,11 @@ class _RecipePageState extends State<RecipePage> {
         ),
       );
 
+      // 🟢 SINKRONISASI BAHASA PROMPT AI: Sampaikan instruksi bahasa secara tegas ke Gemini AI
+      String targetLanguageInstruction = isEnglishNotifier.value
+          ? "Strictly generate the entire recipe response (title, ingredients, instructions, and suitable_diet value description) in English language. For suitable_diet key, use raw exact value from the options list below, but ensure any descriptive textual data is English."
+          : "Tolong generate seluruh respon resep ini (termasuk judul, bahan-bahan, langkah memasak) dalam Bahasa Indonesia secara konsisten.";
+
       final prompt =
           '''
       Anda adalah Chef Gizi Profesional untuk aplikasi MacroFit.
@@ -154,6 +161,8 @@ class _RecipePageState extends State<RecipePage> {
       Seluruh resep harus disesuaikan secara ilmiah untuk profil diet berikut:
       - Tipe Program Diet: $dietCode
       - Target Kalori Harian Pengguna: $targetCalorie kkal
+
+      $targetLanguageInstruction
 
       Berikan output HARUS dalam format JSON Array murni yang berisi 10 objek resep. Jangan berikan teks penjelasan markdown di luar JSON.
       
@@ -165,10 +174,10 @@ class _RecipePageState extends State<RecipePage> {
       Pastikan semua huruf pada key (kunci) menggunakan HURUF KECIL SEMUA seperti contoh berikut:
       [
         {
-          "title": "Ayam Panggang Lemon Madu",
+          "title": "${isEnglishNotifier.value ? 'Honey Lemon Grilled Chicken' : 'Ayam Panggang Lemon Madu'}",
           "calories": 350,
-          "ingredients": ["100g Dada Ayam", "1 sdm Madu", "Perasan Lemon"],
-          "instructions": ["Marinasi ayam dengan lemon dan madu", "Panggang hingga matang 20 menit"],
+          "ingredients": ${isEnglishNotifier.value ? '["100g Chicken Breast", "1 tbsp Honey", "Lemon Juice"]' : '["100g Dada Ayam", "1 sdm Madu", "Perasan Lemon"]'},
+          "instructions": ${isEnglishNotifier.value ? '["Marinate chicken with lemon and honey", "Grill until cooked for 20 minutes"]' : '["Marinasi ayam dengan lemon dan madu", "Panggang hingga matang 20 menit"]'},
           "suitable_diet": "$dietCode",
           "unsuitable_diet": "None",
           "image_keyword": "grilled_lemon_chicken"
@@ -194,7 +203,11 @@ class _RecipePageState extends State<RecipePage> {
           }
 
           batchInsert.set(docRef, {
-            'title': recipe['title'] ?? 'Resep Kuliner Sehat AI',
+            'title':
+                recipe['title'] ??
+                (isEnglishNotifier.value
+                    ? 'AI Healthy Culinary Recipe'
+                    : 'Resep Kuliner Sehat AI'),
             'calories': recipe['calories'] ?? 0,
             'image_url': null,
             'image_keyword': recipe['image_keyword'] ?? 'healthy_food',
@@ -215,7 +228,6 @@ class _RecipePageState extends State<RecipePage> {
           if (mounted) {
             setState(() {
               _remainingCounter--;
-              // 🟢 REFRESH KEY OTOMATIS: Hancurkan cache Hero lama setelah sukses men-generate menu AI baru
               _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
                   .toString();
             });
@@ -274,7 +286,12 @@ class _RecipePageState extends State<RecipePage> {
               });
 
               if (mounted) {
-                Notify.success(context, 'Resep berhasil diperbarui!');
+                Notify.success(
+                  context,
+                  isEnglishNotifier.value
+                      ? 'Recipe updated successfully!'
+                      : 'Resep berhasil diperbarui!',
+                );
               }
             },
       ),
@@ -297,7 +314,12 @@ class _RecipePageState extends State<RecipePage> {
         onDeleteRecipe: () async {
           await _firestore.collection('recipes').doc(docId).delete();
           if (mounted) {
-            Notify.success(context, 'Resep berhasil dihapus permanen.');
+            Notify.success(
+              context,
+              isEnglishNotifier.value
+                  ? 'Recipe deleted permanently.'
+                  : 'Resep berhasil dihapus permanen.',
+            );
           }
         },
       ),
@@ -378,7 +400,12 @@ class _RecipePageState extends State<RecipePage> {
                 });
 
                 if (mounted) {
-                  Notify.success(context, 'Resep berhasil dipublikasikan!');
+                  Notify.success(
+                    context,
+                    isEnglishNotifier.value
+                        ? 'Recipe published successfully!'
+                        : 'Resep berhasil dipublikasikan!',
+                  );
                 }
               } catch (e) {
                 debugPrint("Error publishing recipe: $e");
@@ -424,7 +451,12 @@ class _RecipePageState extends State<RecipePage> {
 
       if (favoriteSnapshot.docs.length >= 50) {
         if (mounted) {
-          Notify.error(context, 'Batas simpan penuh (Maks. 50 resep).');
+          Notify.error(
+            context,
+            isEnglishNotifier.value
+                ? 'Save limit reached (Max 50 recipes).'
+                : 'Batas simpan penuh (Maks. 50 resep).',
+          );
         }
         return;
       }
@@ -451,7 +483,12 @@ class _RecipePageState extends State<RecipePage> {
         });
 
         if (mounted) {
-          Notify.success(context, 'Resep AI berhasil disimpan!');
+          Notify.success(
+            context,
+            isEnglishNotifier.value
+                ? 'AI Recipe saved successfully!'
+                : 'Resep AI berhasil disimpan!',
+          );
         }
       } else {
         await docRef.update({
@@ -463,7 +500,7 @@ class _RecipePageState extends State<RecipePage> {
     }
   }
 
-  Widget _buildAITabView() {
+  Widget _buildAITabView(bool isEnglish) {
     final theme = Theme.of(context);
     final bool isButtonDisabled = _remainingCounter <= 0 || _isGeneratingAI;
 
@@ -480,16 +517,20 @@ class _RecipePageState extends State<RecipePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Bosan dengan Menu Lama?",
-                      style: TextStyle(
+                    Text(
+                      isEnglish
+                          ? "Bored with Old Menus?"
+                          : "Bosan dengan Menu Lama?",
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      "Minta AI buatkan resep instan! (Sisa Hari Ini: $_remainingCounter/2)",
+                      isEnglish
+                          ? "Ask AI to craft instant recipes! (Left Today: $_remainingCounter/2)"
+                          : "Minta AI buatkan resep instan! (Sisa Hari Ini: $_remainingCounter/2)",
                       style: TextStyle(
                         fontSize: 12,
                         color: _remainingCounter == 0
@@ -535,9 +576,9 @@ class _RecipePageState extends State<RecipePage> {
                               : Colors.amber,
                           size: 16,
                         ),
-                        label: const Text(
-                          "Generate AI",
-                          style: TextStyle(
+                        label: Text(
+                          isEnglish ? "Generate AI" : "Generate AI",
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -564,7 +605,7 @@ class _RecipePageState extends State<RecipePage> {
     );
   }
 
-  Widget _buildSavedTabView() {
+  Widget _buildSavedTabView(bool isEnglish) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -578,12 +619,12 @@ class _RecipePageState extends State<RecipePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                children: const [
-                  Icon(Icons.filter_list, size: 18, color: Colors.grey),
-                  SizedBox(width: 8),
+                children: [
+                  const Icon(Icons.filter_list, size: 18, color: Colors.grey),
+                  const SizedBox(width: 8),
                   Text(
-                    "Saring Kategori:",
-                    style: TextStyle(
+                    isEnglish ? "Filter Category:" : "Saring Kategori:",
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: Colors.grey,
@@ -607,15 +648,32 @@ class _RecipePageState extends State<RecipePage> {
                 ),
                 items: ['All', ..._dietOptions].map((String value) {
                   String displayLabel = value;
-                  if (value == 'All') displayLabel = 'Semua Kategori Diet';
-                  if (value == 'Menurunkan Berat Badan')
-                    displayLabel = 'Menurunkan Berat Badan';
-                  if (value == 'gain_muscle')
-                    displayLabel = 'Menaikkan Massa Otot';
-                  if (value == 'healthy_lifestyle')
-                    displayLabel = 'Gaya Hidup Sehat';
-                  if (value == 'keto_diet') displayLabel = 'Diet Keto';
-                  if (value == 'vegetarian') displayLabel = 'Vegetarian';
+                  if (value == 'All') {
+                    displayLabel = isEnglish
+                        ? 'All Diet Categories'
+                        : 'Semua Kategori Diet';
+                  }
+                  if (value == 'Menurunkan Berat Badan') {
+                    displayLabel = isEnglish
+                        ? 'Lose Weight'
+                        : 'Menurunkan Berat Badan';
+                  }
+                  if (value == 'gain_muscle') {
+                    displayLabel = isEnglish
+                        ? 'Gain Muscle'
+                        : 'Menaikkan Massa Otot';
+                  }
+                  if (value == 'healthy_lifestyle') {
+                    displayLabel = isEnglish
+                        ? 'Healthy Lifestyle'
+                        : 'Gaya Hidup Sehat';
+                  }
+                  if (value == 'keto_diet') {
+                    displayLabel = isEnglish ? 'Keto Diet' : 'Diet Keto';
+                  }
+                  if (value == 'vegetarian') {
+                    displayLabel = isEnglish ? 'Vegetarian' : 'Vegetarian';
+                  }
 
                   return DropdownMenuItem<String>(
                     value: value,
@@ -660,206 +718,229 @@ class _RecipePageState extends State<RecipePage> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    return DefaultTabController(
-      length: 4,
-      child: Stack(
-        children: [
-          Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                "MacroFit Recipes",
-                style: TextStyle(fontWeight: FontWeight.bold),
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman tab bar kustom dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return DefaultTabController(
+          length: 4,
+          child: Stack(
+            children: [
+              Scaffold(
+                appBar: AppBar(
+                  title: Text(
+                    englishActive ? "MacroFit Recipes" : "Resep MacroFit",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: theme.appBarTheme.backgroundColor,
+                  foregroundColor: theme.appBarTheme.foregroundColor,
+                  elevation: 0,
+                  bottom: TabBar(
+                    isScrollable: false,
+                    labelColor: theme.primaryColor,
+                    unselectedLabelColor: isDarkMode
+                        ? Colors.white38
+                        : Colors.black38,
+                    indicatorColor: theme.primaryColor,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    labelStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: const TextStyle(fontSize: 11),
+                    tabs: [
+                      const Tab(
+                        icon: Icon(Icons.psychology_outlined, size: 20),
+                        text: 'AI',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.people_outline, size: 20),
+                        text: englishActive ? 'Community' : 'Komunitas',
+                      ),
+                      Tab(
+                        icon: const Icon(
+                          Icons.assignment_ind_outlined,
+                          size: 20,
+                        ),
+                        text: englishActive ? 'Published' : 'Terbitan',
+                      ),
+                      Tab(
+                        icon: const Icon(Icons.bookmark_border, size: 20),
+                        text: englishActive ? 'Saved' : 'Tersimpan',
+                      ),
+                    ],
+                  ),
+                ),
+                backgroundColor: theme.scaffoldBackgroundColor,
+                body: TabBarView(
+                  children: [
+                    RefreshIndicator(
+                      color: theme.primaryColor,
+                      onRefresh: () async {
+                        await Future.delayed(const Duration(milliseconds: 800));
+                        setState(() {
+                          _refreshTriggerKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: _buildAITabView(englishActive),
+                    ),
+
+                    // TAB COMMUNITY
+                    RefreshIndicator(
+                      color: theme.primaryColor,
+                      onRefresh: () async {
+                        await Future.delayed(const Duration(milliseconds: 800));
+                        setState(() {
+                          _refreshTriggerKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: RecipeStreamView(
+                        key: ValueKey(
+                          'stream_community_${_selectedCommunityDietFilter}_$_refreshTriggerKey',
+                        ),
+                        filterType: 'Community',
+                        currentUserId: currentUserId,
+                        firestore: _firestore,
+                        savedDietFilter: _selectedCommunityDietFilter,
+                        onDietFilterChanged: (selectedDiet) {
+                          setState(() {
+                            _selectedCommunityDietFilter = selectedDiet;
+                          });
+                        },
+                        onTapCard: (recipeData, docId) =>
+                            _showRecipeDetail(recipeData, docId),
+                        onToggleFavorite: _toggleFavoriteRecipe,
+                      ),
+                    ),
+
+                    // TAB PUBLISHED
+                    RefreshIndicator(
+                      color: theme.primaryColor,
+                      onRefresh: () async {
+                        await Future.delayed(const Duration(milliseconds: 800));
+                        setState(() {
+                          _refreshTriggerKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: RecipeStreamView(
+                        key: ValueKey(
+                          'stream_published_${_selectedPublishedDietFilter}_$_refreshTriggerKey',
+                        ),
+                        filterType: 'MyPublished',
+                        currentUserId: currentUserId,
+                        firestore: _firestore,
+                        savedDietFilter: _selectedPublishedDietFilter,
+                        onDietFilterChanged: (selectedDiet) {
+                          setState(() {
+                            _selectedPublishedDietFilter = selectedDiet;
+                          });
+                        },
+                        onTapCard: (recipeData, docId) =>
+                            _showRecipeDetail(recipeData, docId),
+                        onToggleFavorite: _toggleFavoriteRecipe,
+                      ),
+                    ),
+
+                    // TAB SAVED
+                    RefreshIndicator(
+                      color: theme.primaryColor,
+                      onRefresh: () async {
+                        await Future.delayed(const Duration(milliseconds: 800));
+                        setState(() {
+                          _refreshTriggerKey = DateTime.now()
+                              .millisecondsSinceEpoch
+                              .toString();
+                        });
+                      },
+                      child: _buildSavedTabView(englishActive),
+                    ),
+                  ],
+                ),
+                floatingActionButton: _isUploadingRecipe
+                    ? FloatingActionButton(
+                        onPressed: null,
+                        backgroundColor: Colors.grey.shade400,
+                        child: const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : FloatingActionButton.extended(
+                        onPressed: _showAddRecipeDialog,
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                        icon: const Icon(Icons.add),
+                        label: Text(
+                          englishActive ? 'Publish Recipe' : 'Bagikan Resep',
+                        ),
+                      ),
               ),
-              backgroundColor: theme.appBarTheme.backgroundColor,
-              foregroundColor: theme.appBarTheme.foregroundColor,
-              elevation: 0,
-              bottom: TabBar(
-                isScrollable: false,
-                labelColor: theme.primaryColor,
-                unselectedLabelColor: isDarkMode
-                    ? Colors.white38
-                    : Colors.black38,
-                indicatorColor: theme.primaryColor,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 2.0),
-                labelStyle: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-                unselectedLabelStyle: const TextStyle(fontSize: 11),
-                tabs: const [
-                  Tab(
-                    icon: Icon(Icons.psychology_outlined, size: 20),
-                    text: 'AI',
-                  ),
-                  Tab(
-                    icon: Icon(Icons.people_outline, size: 20),
-                    text: 'Community',
-                  ),
-                  Tab(
-                    icon: Icon(Icons.assignment_ind_outlined, size: 20),
-                    text: 'Published',
-                  ),
-                  Tab(
-                    icon: Icon(Icons.bookmark_border, size: 20),
-                    text: 'Saved',
-                  ),
-                ],
-              ),
-            ),
-            backgroundColor: theme.scaffoldBackgroundColor,
-            body: TabBarView(
-              children: [
-                // 🟢 FIX TAB AI: Hilangkan SingleChildScrollView + letakkan RefreshIndicator langsung membungkus _buildAITabView()
-                RefreshIndicator(
-                  color: theme.primaryColor,
-                  onRefresh: () async {
-                    await Future.delayed(const Duration(milliseconds: 800));
-                    setState(() {
-                      _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
-                          .toString();
-                    });
-                  },
-                  child: _buildAITabView(),
-                ),
 
-                // TAB COMMUNITY
-                RefreshIndicator(
-                  color: theme.primaryColor,
-                  onRefresh: () async {
-                    await Future.delayed(const Duration(milliseconds: 800));
-                    setState(() {
-                      _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
-                          .toString();
-                    });
-                  },
-                  child: RecipeStreamView(
-                    key: ValueKey(
-                      'stream_community_${_selectedCommunityDietFilter}_$_refreshTriggerKey',
+              if (_isUploadingRecipe)
+                Container(
+                  color: Colors.black.withOpacity(0.35),
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: Center(
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 28.0,
+                          vertical: 24.0,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                theme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              englishActive
+                                  ? "Uploading recipe creation..."
+                                  : "Mengunggah kreasi resep...",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              englishActive
+                                  ? "Please wait until the media is successfully posted"
+                                  : "Mohon tunggu hingga media sukses diposting",
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    filterType: 'Community',
-                    currentUserId: currentUserId,
-                    firestore: _firestore,
-                    savedDietFilter: _selectedCommunityDietFilter,
-                    onDietFilterChanged: (selectedDiet) {
-                      setState(() {
-                        _selectedCommunityDietFilter = selectedDiet;
-                      });
-                    },
-                    onTapCard: (recipeData, docId) =>
-                        _showRecipeDetail(recipeData, docId),
-                    onToggleFavorite: _toggleFavoriteRecipe,
                   ),
                 ),
-
-                // TAB PUBLISHED
-                RefreshIndicator(
-                  color: theme.primaryColor,
-                  onRefresh: () async {
-                    await Future.delayed(const Duration(milliseconds: 800));
-                    setState(() {
-                      _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
-                          .toString();
-                    });
-                  },
-                  child: RecipeStreamView(
-                    key: ValueKey(
-                      'stream_published_${_selectedPublishedDietFilter}_$_refreshTriggerKey',
-                    ),
-                    filterType: 'MyPublished',
-                    currentUserId: currentUserId,
-                    firestore: _firestore,
-                    savedDietFilter: _selectedPublishedDietFilter,
-                    onDietFilterChanged: (selectedDiet) {
-                      setState(() {
-                        _selectedPublishedDietFilter = selectedDiet;
-                      });
-                    },
-                    onTapCard: (recipeData, docId) =>
-                        _showRecipeDetail(recipeData, docId),
-                    onToggleFavorite: _toggleFavoriteRecipe,
-                  ),
-                ),
-
-                // TAB SAVED
-                RefreshIndicator(
-                  color: theme.primaryColor,
-                  onRefresh: () async {
-                    await Future.delayed(const Duration(milliseconds: 800));
-                    setState(() {
-                      _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
-                          .toString();
-                    });
-                  },
-                  child: _buildSavedTabView(),
-                ),
-              ],
-            ),
-            floatingActionButton: _isUploadingRecipe
-                ? FloatingActionButton(
-                    onPressed: null,
-                    backgroundColor: Colors.grey.shade400,
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  )
-                : FloatingActionButton.extended(
-                    onPressed: _showAddRecipeDialog,
-                    backgroundColor: theme.primaryColor,
-                    foregroundColor: Colors.white,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Publish Recipe'),
-                  ),
+            ],
           ),
-
-          if (_isUploadingRecipe)
-            Container(
-              color: Colors.black.withOpacity(0.35),
-              width: double.infinity,
-              height: double.infinity,
-              child: Center(
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  color: isDarkMode ? Colors.grey.shade900 : Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28.0,
-                      vertical: 24.0,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          "Mengunggah kreasi resep...",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isDarkMode ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "Mohon tunggu hingga media sukses diposting",
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

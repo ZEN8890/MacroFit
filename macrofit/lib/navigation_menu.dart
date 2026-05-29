@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'pages/history_page.dart';
 import 'pages/restaurant_page.dart';
-import 'pages/recipe_page.dart'; // 🔥 1. IMPORT HALAMAN RESEP BARU
+import 'pages/recipe_page.dart';
 import 'pages/forum_page.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class NavigationMenu extends StatefulWidget {
   const NavigationMenu({super.key});
@@ -22,66 +23,67 @@ class _NavigationMenuState extends State<NavigationMenu> {
     super.dispose();
   }
 
-  // Fungsi saat layar digeser
   void _onPageChanged(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  // Fungsi saat ikon navbar diklik
   void _onItemTapped(int index) {
     _pageController.jumpToPage(index);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        children: const [
-          HomePage(), // Index 0
-          HistoryPage(), // Index 1
-          RestaurantPage(), // Index 2
-          RecipePage(), // 🔥 2. SISIPKAN RESEP PAGE DI INDEX 3 (Sebelah Restoran)
-          ForumPage(), // Index 4 (Geser otomatis menjadi Index 4)
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus Scaffold dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          body: PageView(
+            controller: _pageController,
+            onPageChanged: _onPageChanged,
+            children: const [
+              HomePage(),
+              HistoryPage(),
+              RestaurantPage(),
+              RecipePage(),
+              ForumPage(),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'Riwayat',
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home),
+                label: englishActive ? 'Home' : 'Beranda',
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.history_outlined),
+                selectedIcon: const Icon(Icons.history),
+                label: englishActive ? 'History' : 'Riwayat',
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.restaurant_outlined),
+                selectedIcon: const Icon(Icons.restaurant),
+                label: englishActive ? 'Restaurant' : 'Restoran',
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.menu_book_outlined),
+                selectedIcon: const Icon(Icons.menu_book),
+                label: englishActive ? 'Recipe' : 'Resep',
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.forum_outlined),
+                selectedIcon: const Icon(Icons.forum),
+                label: 'Forum', // 'Forum' bersifat universal
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.restaurant_outlined),
-            selectedIcon: Icon(Icons.restaurant),
-            label: 'Restoran',
-          ),
-
-          // 🔥 3. TAMBAHKAN ITEM NAVIGASI RESEP BARU
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Resep',
-          ),
-
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum),
-            label: 'Forum',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

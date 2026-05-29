@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/nutrition_model.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // --- LOGIKA UPDATE PROFIL ---
   Future<void> updateOnboardingData({
     required String uid,
     required int age,
@@ -15,7 +15,7 @@ class DatabaseService {
     required NutritionModel nutrition,
   }) async {
     try {
-      await _firestore.collection("users").doc(uid).update({
+      await _firestore.collection("users").doc(uid).set({
         'age': age,
         'weight': weight,
         'height': height,
@@ -29,7 +29,7 @@ class DatabaseService {
         'target_cal_min': nutrition.targetCalMin,
         'daily_calorie_target': nutrition.targetCalMax,
         'updated_at': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Error Update Profil: $e");
       rethrow;
@@ -55,7 +55,7 @@ class DatabaseService {
     }
   }
 
-  // --- LOGIKA KURANGI AIR (YANG TADI HILANG) ---
+  // --- LOGIKA KURANGI AIR ---
   Future<void> removeWaterIntake(String uid, int amount) async {
     String today = DateTime.now().toString().split(' ')[0];
     DocumentReference dailyRef = _firestore
@@ -78,7 +78,12 @@ class DatabaseService {
           .timeout(const Duration(seconds: 10));
     } catch (e) {
       debugPrint("MacroFit Error - Remove Water: $e");
-      throw Exception("Gagal mengurangi data air: $e");
+      // 🟢 DINAMIS MULTI-BAHASA PADA CONTEXT THROW EXCEPTION TRANSKASI AIR
+      throw Exception(
+        isEnglishNotifier.value
+            ? "Failed to reduce water log data: $e"
+            : "Gagal mengurangi data air: $e",
+      );
     }
   }
 
@@ -137,7 +142,7 @@ class DatabaseService {
     }
   }
 
-  // --- FUNGSI AMBIL RIWAYAT ---
+  // --- FUNGSI AMBIL RIWAYAT HARI INI ---
   Stream<QuerySnapshot> getTodayFoodLogs(String uid) {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
@@ -153,7 +158,7 @@ class DatabaseService {
         .snapshots();
   }
 
-  // Fungsi baru untuk mengambil data berdasarkan filter di halaman History
+  // --- FUNGSI FILTER HISTORI GRAFIK ---
   Stream<QuerySnapshot> getFilteredFoodLogs(
     String uid,
     String filterType,
@@ -162,17 +167,14 @@ class DatabaseService {
     final now = DateTime.now();
     DateTime startDate;
 
-    if (filterType == 'Harian') {
-      // Khusus Harian: Dari jam 00:00 hari ini sampai sekarang
+    // 🟢 SINKRONISASI EVALUASI STRINGS FILTER (Mendukung pengenalan kunci parameter dwi-bahasa internal)
+    if (filterType == 'Harian' || filterType == 'Daily') {
       startDate = DateTime(now.year, now.month, now.day);
-    } else if (filterType == 'Mingguan') {
-      // Mingguan: 7 hari terakhir ke belakang
+    } else if (filterType == 'Mingguan' || filterType == 'Weekly') {
       startDate = now.subtract(const Duration(days: 7));
-    } else if (filterType == 'Tahunan') {
-      // Tahunan: Dari 1 Januari tahun ini
+    } else if (filterType == 'Tahunan' || filterType == 'Yearly') {
       startDate = DateTime(now.year, 1, 1);
     } else if (filterType == 'Custom' && customDate != null) {
-      // Custom: Dari jam 00:00 di tanggal yang dipilih user sampai 23:59 di tanggal tersebut
       startDate = DateTime(customDate.year, customDate.month, customDate.day);
       DateTime endDate = DateTime(
         customDate.year,
@@ -192,7 +194,6 @@ class DatabaseService {
           .orderBy('timestamp', descending: true)
           .snapshots();
     } else {
-      // Default jika ada anomali, ambil hari ini
       startDate = DateTime(now.year, now.month, now.day);
     }
 

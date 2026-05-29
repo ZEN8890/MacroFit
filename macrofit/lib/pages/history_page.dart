@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/database_services.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -36,106 +37,153 @@ class _HistoryPageState extends State<HistoryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Statistik & Riwayat",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: user == null
-          ? const Center(child: Text("Silakan login"))
-          : StreamBuilder<DocumentSnapshot>(
-              // STREAM 1: Ambil data user profil untuk mendapatkan target kalori dinamis (3324 kkal)
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman History dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        // Pemetaan translasi teks lokal dinamis pada filter chart harian/mingguan/tahunan
+        if (selectedFilter == 'Harian' && englishActive)
+          selectedFilter = 'Daily';
+        if (selectedFilter == 'Daily' && !englishActive)
+          selectedFilter = 'Harian';
+        if (selectedFilter == 'Mingguan' && englishActive)
+          selectedFilter = 'Weekly';
+        if (selectedFilter == 'Weekly' && !englishActive)
+          selectedFilter = 'Mingguan';
+        if (selectedFilter == 'Tahunan' && englishActive)
+          selectedFilter = 'Yearly';
+        if (selectedFilter == 'Yearly' && !englishActive)
+          selectedFilter = 'Tahunan';
 
-                if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-                  return const Center(
-                    child: Text("Profil user tidak ditemukan"),
-                  );
-                }
-
-                var userData =
-                    userSnapshot.data!.data() as Map<String, dynamic>;
-
-                return StreamBuilder<QuerySnapshot>(
-                  // STREAM 2: Ambil data log makanan berdasarkan filter
-                  stream: DatabaseService().getFilteredFoodLogs(
-                    user.uid,
-                    selectedFilter,
-                    customDate,
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              englishActive ? "Statistics & History" : "Statistik & Riwayat",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          body: user == null
+              ? Center(
+                  child: Text(
+                    englishActive ? "Please login first" : "Silakan login",
                   ),
-                  builder: (context, foodSnapshot) {
-                    if (foodSnapshot.connectionState ==
+                )
+              : StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .snapshots(),
+                  builder: (context, userSnapshot) {
+                    if (userSnapshot.connectionState ==
                         ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    List<QueryDocumentSnapshot> docs =
-                        foodSnapshot.data?.docs ?? [];
-
-                    return ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        // --- 1. FILTER SECTION ---
-                        _buildFilterSegment(colorScheme),
-                        const SizedBox(height: 25),
-
-                        // --- 2. STATISTIC SECTION ---
-                        _buildDynamicChart(docs, userData, colorScheme),
-                        const SizedBox(height: 30),
-
-                        // --- 3. LIST HISTORY SECTION ---
-                        Text(
-                          "Daftar Konsumsi (${docs.length})",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
+                    if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                      return Center(
+                        child: Text(
+                          englishActive
+                              ? "User profile not found"
+                              : "Profil user tidak ditemukan",
                         ),
-                        const SizedBox(height: 15),
+                      );
+                    }
 
-                        if (docs.isEmpty)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 40),
-                              child: Text(
-                                "Tidak ada riwayat makanan pada periode ini.",
+                    var userData =
+                        userSnapshot.data!.data() as Map<String, dynamic>;
+
+                    // 🟢 SOLUSI UTAMA: Pecah logika penerjemahan database ke variabel bersih di luar parameter
+                    final String internalDbFilter = selectedFilter == 'Daily'
+                        ? 'Harian'
+                        : selectedFilter == 'Weekly'
+                        ? 'Mingguan'
+                        : selectedFilter == 'Yearly'
+                        ? 'Tahunan'
+                        : selectedFilter;
+
+                    return StreamBuilder<QuerySnapshot>(
+                      // 🟢 SEKARANG JAUH LEBIH BERSIH & AMAN DARI ERROR TOKEN
+                      stream: DatabaseService().getFilteredFoodLogs(
+                        user.uid,
+                        internalDbFilter,
+                        customDate,
+                      ),
+                      builder: (context, foodSnapshot) {
+                        if (foodSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        List<QueryDocumentSnapshot> docs =
+                            foodSnapshot.data?.docs ?? [];
+
+                        return ListView(
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            // --- 1. FILTER SECTION ---
+                            _buildFilterSegment(colorScheme, englishActive),
+                            const SizedBox(height: 25),
+
+                            // --- 2. STATISTIC SECTION ---
+                            _buildDynamicChart(
+                              docs,
+                              userData,
+                              colorScheme,
+                              englishActive,
+                            ),
+                            const SizedBox(height: 30),
+
+                            // --- 3. LIST HISTORY SECTION ---
+                            Text(
+                              englishActive
+                                  ? "Consumption List (${docs.length})"
+                                  : "Daftar Konsumsi (${docs.length})",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
                               ),
                             ),
-                          )
-                        else
-                          _buildFoodList(docs, colorScheme),
-                      ],
+                            const SizedBox(height: 15),
+
+                            if (docs.isEmpty)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 40),
+                                  child: Text(
+                                    englishActive
+                                        ? "No food history found for this period."
+                                        : "Tidak ada riwayat makanan pada periode ini.",
+                                  ),
+                                ),
+                              )
+                            else
+                              _buildFoodList(docs, colorScheme, englishActive),
+                          ],
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+        );
+      },
     );
   }
 
-  Widget _buildFilterSegment(ColorScheme colorScheme) {
-    List<String> filters = ['Harian', 'Mingguan', 'Tahunan'];
+  Widget _buildFilterSegment(ColorScheme colorScheme, bool englishActive) {
+    List<String> filters = englishActive
+        ? ['Daily', 'Weekly', 'Yearly']
+        : ['Harian', 'Mingguan', 'Tahunan'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.3,
-        ), // Perbaikan Deprecated
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          // Perbaikan Spread Operator Linter (Hapus .toList())
           ...filters.map((filter) {
             bool isSelected = selectedFilter == filter;
             return Expanded(
@@ -186,12 +234,13 @@ class _HistoryPageState extends State<HistoryPage> {
     List<QueryDocumentSnapshot> docs,
     Map<String, dynamic> userData,
     ColorScheme colorScheme,
+    bool englishActive,
   ) {
     String labelX = selectedFilter == 'Custom' && customDate != null
         ? DateFormat('dd MMM').format(customDate!)
         : selectedFilter;
 
-    double targetCalorieBaseline = (userData['daily_calorie_target'] ?? 2000)
+    double targetCalorieBaseline = (userData['target_calories'] ?? 2000)
         .toDouble();
 
     List<FlSpot> spots = [];
@@ -200,6 +249,7 @@ class _HistoryPageState extends State<HistoryPage> {
     List<QueryDocumentSnapshot> sortedDocs = List.from(docs.reversed);
 
     if (selectedFilter == 'Harian' ||
+        selectedFilter == 'Daily' ||
         (selectedFilter == 'Custom' && sortedDocs.isNotEmpty)) {
       double runningTotal = 0;
       for (int i = 0; i < sortedDocs.length; i++) {
@@ -266,7 +316,9 @@ class _HistoryPageState extends State<HistoryPage> {
           Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Text(
-              "Intake Kalori ($labelX)",
+              englishActive
+                  ? "Calorie Intake ($labelX)"
+                  : "Intake Kalori ($labelX)",
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -291,12 +343,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   horizontalLines: [
                     HorizontalLine(
                       y: targetCalorieBaseline,
-                      color: Colors.red.withValues(
-                        alpha: 0.8,
-                      ), // Perbaikan Deprecated
+                      color: Colors.red.withValues(alpha: 0.8),
                       strokeWidth: 2,
                       dashArray: [5, 5],
                       label: HorizontalLineLabel(
+                        // 🟢 FIX: Diubah dari HorizontalLineLineLabel menjadi HorizontalLineLabel
                         show: true,
                         alignment: Alignment.topRight,
                         style: const TextStyle(
@@ -304,8 +355,9 @@ class _HistoryPageState extends State<HistoryPage> {
                           fontWeight: FontWeight.bold,
                           color: Colors.red,
                         ),
-                        labelResolver: (line) =>
-                            "Target: ${line.y.toInt()} kkal",
+                        labelResolver: (line) => englishActive
+                            ? "Target: ${line.y.toInt()} kcal"
+                            : "Target: ${line.y.toInt()} kkal",
                       ),
                     ),
                   ],
@@ -369,7 +421,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     belowBarData: BarAreaData(
                       show: true,
                       color: colorScheme.primary.withValues(alpha: 0.1),
-                    ), // Perbaikan Deprecated
+                    ),
                   ),
                 ],
               ),
@@ -383,6 +435,7 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget _buildFoodList(
     List<QueryDocumentSnapshot> docs,
     ColorScheme colorScheme,
+    bool englishActive,
   ) {
     return ListView.builder(
       shrinkWrap: true,
@@ -404,19 +457,19 @@ class _HistoryPageState extends State<HistoryPage> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(
-                  alpha: 0.4,
-                ), // Perbaikan Deprecated
+                color: colorScheme.primaryContainer.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(Icons.fastfood, color: colorScheme.primary, size: 20),
             ),
             title: Text(
-              meal['food_name'] ?? "Food",
+              meal['food_name'] ?? (englishActive ? "Food" : "Makanan"),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              "$formattedDate\nP: ${meal['protein']}g | K: ${meal['carbs']}g | L: ${meal['fats']}g",
+              englishActive
+                  ? "$formattedDate\nP: ${meal['protein']}g | C: ${meal['carbs']}g | F: ${meal['fats']}g"
+                  : "$formattedDate\nP: ${meal['protein']}g | K: ${meal['carbs']}g | L: ${meal['fats']}g",
             ),
             isThreeLine: true,
             trailing: Text(

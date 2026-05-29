@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class FoodVerificationCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -12,7 +13,6 @@ class FoodVerificationCard extends StatelessWidget {
     required this.onCancel,
   });
 
-  // 🔥 PERBAIKAN OVERFLOW: Menggunakan Expanded agar membagi ruang horizontal sama rata
   Widget _nutrisiMiniText(
     BuildContext context,
     String label,
@@ -27,7 +27,6 @@ class FoodVerificationCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Badge Label Kecil Melengkung
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -40,20 +39,19 @@ class FoodVerificationCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 9, // Ukuran disesuaikan agar muat di layar HP kecil
+                fontSize: 9,
                 fontWeight: FontWeight.bold,
                 color: badgeColor,
               ),
             ),
           ),
           const SizedBox(height: 6),
-          // Nilai Angka Nutrisi
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13, // Ukuran angka disesuaikan
+              fontSize: 13,
               fontWeight: FontWeight.bold,
               color: valueColor ?? (isDarkMode ? Colors.white : Colors.black87),
             ),
@@ -67,156 +65,158 @@ class FoodVerificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: theme.cardTheme.color,
-      elevation: 2,
-      shape:
-          theme.cardTheme.shape ??
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Baris Judul Hasil Scan Gemini AI
-            Row(
-              children: [
-                const Icon(
-                  Icons.analytics_outlined,
-                  color: Colors.blue,
-                  size: 22,
-                ),
-                Expanded(
-                  child: Text(
-                    "Verifikasi Hasil: ${data['food_name']}",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.0),
-              child: Divider(thickness: 1, height: 1),
-            ),
-
-            // 🔥 GRID NUTRISI AMAN: Teks label dipersingkat dan responsif
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // 🟢 REAKTIF MULTI-BAHASA: Membungkus kartu verifikasi dengan ValueListenableBuilder
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: theme.cardTheme.color,
+          elevation: 2,
+          shape:
+              theme.cardTheme.shape ??
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _nutrisiMiniText(
-                  context,
-                  "PROT",
-                  "${data['protein']}g",
-                  badgeColor: Colors.redAccent,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.analytics_outlined,
+                      color: Colors.blue,
+                      size: 22,
+                    ),
+                    Expanded(
+                      child: Text(
+                        englishActive
+                            ? "Verification Result: ${data['food_name']}"
+                            : "Verifikasi Hasil: ${data['food_name']}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                _nutrisiMiniText(
-                  context,
-                  "KARBO",
-                  "${data['carbs']}g",
-                  badgeColor: Colors.amber.shade700,
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10.0),
+                  child: Divider(thickness: 1, height: 1),
                 ),
-                _nutrisiMiniText(
-                  context,
-                  "LEMAK",
-                  "${data['fats']}g",
-                  badgeColor: Colors.blueGrey,
-                ),
-                _nutrisiMiniText(
-                  context,
-                  "KALORI",
-                  "${data['calories']} Kcal",
-                  badgeColor: Colors.orange,
-                  valueColor: Colors.orange.shade700,
-                ),
-                _nutrisiMiniText(
-                  context,
-                  "AIR",
-                  "${data['water_ml']}ml",
-                  badgeColor: Colors.blue,
-                  valueColor: Colors.blue,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
 
-            // 🔥 AKSI TOMBOL SIMETRIS: Tombol Salah dan Benar setara (Material 3 style)
-            Row(
-              children: [
-                // Tombol Batalkan / Salah (Merah Solid)
-                Expanded(
-                  child:
-                      ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade600,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 46),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ).asButton(
-                        onPressed: onCancel,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.close, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              "Salah",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _nutrisiMiniText(
+                      context,
+                      "PROT",
+                      "${data['protein']}g",
+                      badgeColor: Colors.redAccent,
+                    ),
+                    _nutrisiMiniText(
+                      context,
+                      englishActive ? "CARB" : "KARBO",
+                      "${data['carbs']}g",
+                      badgeColor: Colors.amber.shade700,
+                    ),
+                    _nutrisiMiniText(
+                      context,
+                      englishActive ? "FAT" : "LEMAK",
+                      "${data['fats']}g",
+                      badgeColor: Colors.blueGrey,
+                    ),
+                    _nutrisiMiniText(
+                      context,
+                      englishActive ? "CAL" : "KALORI",
+                      "${data['calories']} Kcal",
+                      badgeColor: Colors.orange,
+                      valueColor: Colors.orange.shade700,
+                    ),
+                    _nutrisiMiniText(
+                      context,
+                      englishActive ? "WATER" : "AIR",
+                      "${data['water_ml']}ml",
+                      badgeColor: Colors.blue,
+                      valueColor: Colors.blue,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                // Tombol Konfirmasi / Benar (Hijau Solid)
-                Expanded(
-                  child:
-                      ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 46),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ).asButton(
-                        onPressed: onConfirm,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.check, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              "Benar",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 46),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        ),
-                      ),
+                            elevation: 0,
+                          ).asButton(
+                            onPressed: onCancel,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.close, size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  englishActive ? "Wrong" : "Salah",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child:
+                          ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 46),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ).asButton(
+                            onPressed: onConfirm,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.check, size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  englishActive ? "Correct" : "Benar",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-// 🔥 Ekstensi helper mini untuk merapikan deklarasi penulisan gaya tombol M3
 extension ElevatedButtonStyles on ButtonStyle {
   ElevatedButton asButton({
     required VoidCallback? onPressed,

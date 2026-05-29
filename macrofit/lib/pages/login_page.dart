@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrofit/services/auth_services.dart';
-import '../utils/notification_helper.dart'; // 🟢 Import helper notifikasi
+import '../utils/notification_helper.dart';
+import '../utils/global_state.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -27,10 +28,15 @@ class _LoginPageState extends State<LoginPage> {
   void _handleLogin() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
+    final bool isEnglish = isEnglishNotifier.value;
 
     if (email.isEmpty || password.isEmpty) {
-      // 🟢 GANTI: ScaffoldMessenger dengan Notify.error
-      Notify.error(context, "Email dan password harus diisi");
+      Notify.error(
+        context,
+        isEnglish
+            ? "Email and password cannot be empty"
+            : "Email dan password harus diisi",
+      );
       return;
     }
 
@@ -42,97 +48,155 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (!mounted) return;
-
     setState(() => _isLoading = false);
 
     if (result == "success") {
-      // 🟢 GANTI: ScaffoldMessenger dengan Notify.success
-      Notify.success(context, "Login berhasil!");
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          "/onboarding",
-          (route) => false,
-        );
-      }
+      Notify.success(
+        context,
+        isEnglish ? "Login successful!" : "Login berhasil!",
+      );
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
     } else {
-      // 🟢 GANTI: ScaffoldMessenger dengan Notify.error
-      Notify.error(context, result ?? "Login gagal");
+      Notify.error(
+        context,
+        result == "Login gagal" && isEnglish
+            ? "Login failed"
+            : (result ?? "Login gagal"),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 60),
-            const Text(
-              "Welcome Back",
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-            ),
-            const Text("Please sign in to continue"),
-            const SizedBox(height: 40),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: "Email",
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _passwordController,
-              obscureText: !_isPasswordVisible,
-              decoration: InputDecoration(
-                labelText: "Password",
-                hintText: "Insert password",
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.lock),
-                suffixIcon: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
-                  icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+    return ValueListenableBuilder<bool>(
+      valueListenable: isEnglishNotifier,
+      builder: (context, englishActive, child) {
+        return Scaffold(
+          resizeToAvoidBottomInset:
+              false, // Mencegah UI terangkat oleh keyboard
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 40),
+                        Center(
+                          child: Image.asset(
+                            'assets/Macrofit_logo_only.png',
+                            height: 120,
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        Text(
+                          englishActive ? "Welcome Back" : "Selamat Datang",
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          englishActive
+                              ? "Please sign in to continue"
+                              : "Silakan masuk untuk melanjutkan",
+                        ),
+                        const SizedBox(height: 40),
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            labelText: "Email",
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // 🟢 PASSWORD FIELD DENGAN OBSCURE TOGGLE
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: !_isPasswordVisible,
+                          decoration: InputDecoration(
+                            labelText: "Password",
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _isPasswordVisible = !_isPasswordVisible,
+                              ),
+                              icon: Icon(
+                                _isPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _handleLogin,
+                                  child: Text(
+                                    englishActive ? "Login" : "Masuk",
+                                  ),
+                                ),
+                              ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              englishActive
+                                  ? "Don't have an account? "
+                                  : "Belum punya akun? ",
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pushReplacementNamed(
+                                context,
+                                "/register",
+                              ),
+                              child: Text(
+                                englishActive ? "Register" : "Daftar",
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: () {
-                      _handleLogin();
-                    },
-                    child: const Text("Login"),
+                // Tombol Bahasa
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 20, bottom: 20),
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IconButton(
+                        onPressed: () =>
+                            isEnglishNotifier.value = !isEnglishNotifier.value,
+                        icon: Text(
+                          englishActive ? "🇮🇩" : "🇬🇧",
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ),
                   ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Don't have an account?"),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, "/register");
-                  },
-                  child: const Text("Register"),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. Pastikan package dotenv di-import
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class RestaurantServices {
-  // 2. Ambil nilai API Key secara dinamis dari file env Anda
-  // Jika nama filenya 'key.env', pastikan di main.dart Anda sudah memanggil dotenv.load(fileName: "key.env")
+  // Ambil nilai API Key secara dinamik dari file env
   final String _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
 
   Future<List<Map<String, dynamic>>> fetchRestaurantsFromGoogle(
     double userLat,
     double userLng,
   ) async {
+    final bool isEnglish = isEnglishNotifier.value;
+
     // Jalankan pengecekan validitas key demi keamanan skripsi Anda
     if (_apiKey.isEmpty) {
       print("Warning: GOOGLE_MAPS_API_KEY tidak ditemukan di file .env Anda!");
@@ -29,7 +31,6 @@ class RestaurantServices {
         final List results = data['results'] ?? [];
 
         for (var element in results) {
-          // Di dalam file restaurant_services.dart, pada loop 'for (var element in results)'
           if (element['business_status'] == 'OPERATIONAL') {
             double resLat = element['geometry']['location']['lat'];
             double resLng = element['geometry']['location']['lng'];
@@ -38,14 +39,22 @@ class RestaurantServices {
 
             tempRestaurants.add({
               'name': element['name'],
-              'type': element['types']?[0] ?? 'Tempat Makan',
+              // 🟢 DINAMIS MULTI-BAHASA PADA FALLBACK TIPE RESTORAN KOSONG
+              'type':
+                  element['types']?[0] ??
+                  (isEnglish ? 'Eatery' : 'Tempat Makan'),
               'diet_type': dietTag,
               'lat': resLat,
               'lng': resLng,
               'rating': (element['rating'] ?? 4.0).toDouble(),
               'place_id': element['place_id'],
               'user_ratings_total': element['user_ratings_total'] ?? 0,
-              'address': element['vicinity'] ?? 'Alamat tidak tersedia',
+              // 🟢 DINAMIS MULTI-BAHASA PADA ALAMAT FALLBACK VICINITY GOOGLE MAPS KOSONG
+              'address':
+                  element['vicinity'] ??
+                  (isEnglish
+                      ? 'Address not available'
+                      : 'Alamat tidak tersedia'),
             });
           }
         }

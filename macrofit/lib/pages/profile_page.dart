@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../utils/notification_helper.dart';
+import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import 'about_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -26,7 +28,6 @@ class _ProfilePageState extends State<ProfilePage> {
     {'name': 'Vegetarian', 'code': 'vegetarian'},
   ];
 
-  // FUNGSI HELPER: Menghitung sisa hari pembatasan ganti nama (Aturan 14 Hari)
   int _getRemainingDaysToUpdateName(Timestamp? lastUpdate) {
     if (lastUpdate == null) return 0;
 
@@ -39,7 +40,6 @@ class _ProfilePageState extends State<ProfilePage> {
     return remainingDays > 0 ? remainingDays : 0;
   }
 
-  // 🟢 FUNGSI HELPER BARU: Menghitung sisa hari pembatasan ganti USERNAME (Aturan 14 Hari)
   int _getRemainingDaysToUpdateUsername(Timestamp? lastUpdate) {
     if (lastUpdate == null) return 0;
 
@@ -84,10 +84,22 @@ class _ProfilePageState extends State<ProfilePage> {
         'profile_picture': downloadUrl,
       });
 
-      if (mounted) Notify.success(context, 'Foto profil berhasil diperbarui!');
+      if (mounted) {
+        Notify.success(
+          context,
+          isEnglish
+              ? 'Profile picture updated!'
+              : 'Foto profil berhasil diperbarui!',
+        );
+      }
     } catch (e) {
       if (mounted) {
-        Notify.error(context, 'Gagal memperbarui foto: $e');
+        Notify.error(
+          context,
+          isEnglish
+              ? 'Failed to update photo: $e'
+              : 'Gagal memperbarui foto: $e',
+        );
       }
     } finally {
       if (mounted) {
@@ -118,11 +130,19 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       if (mounted) {
-        Notify.success(context, 'Foto profil dikembalikan ke default.');
+        Notify.success(
+          context,
+          isEnglish
+              ? 'Profile picture reset to default.'
+              : 'Foto profil dikembalikan ke default.',
+        );
       }
     } catch (e) {
       if (mounted) {
-        Notify.error(context, 'Gagal menghapus foto: $e');
+        Notify.error(
+          context,
+          isEnglish ? 'Failed to delete photo: $e' : 'Gagal menghapus foto: $e',
+        );
       }
     }
   }
@@ -152,13 +172,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Konfirmasi Keluar',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                isEnglish ? 'Logout Confirmation' : 'Konfirmasi Keluar',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
-                'Apakah Anda yakin ingin mengakhiri sesi dan keluar dari aplikasi MacroFit?',
+                isEnglish
+                    ? 'Are you sure you want to end your session and log out of MacroFit?'
+                    : 'Apakah Anda yakin ingin mengakhiri sesi dan keluar dari aplikasi MacroFit?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.grey.shade600,
@@ -180,7 +205,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       onPressed: () => Navigator.pop(context),
                       child: Text(
-                        'Batal',
+                        isEnglish ? 'Cancel' : 'Batal',
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
@@ -201,25 +226,20 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       onPressed: () async {
-                        // 1. Tutup dialog terlebih dahulu
                         Navigator.pop(context);
-
-                        // 2. Lakukan proses Sign Out
                         await FirebaseAuth.instance.signOut();
 
-                        // 3. Bersihkan navigasi dan paksa ke halaman login
-                        // (route) => false memastikan semua history halaman sebelumnya dihapus
                         if (context.mounted) {
                           Navigator.pushNamedAndRemoveUntil(
                             context,
-                            '/login', // Pastikan route ini sesuai dengan konfigurasi rute Anda
+                            '/login',
                             (route) => false,
                           );
                         }
                       },
-                      child: const Text(
-                        'Keluar',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      child: Text(
+                        isEnglish ? 'Logout' : 'Keluar',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -232,7 +252,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // 🟢 UPDATE PENUH: Dialog edit identitas kini melacak batasan 14 hari secara terpisah untuk Nama dan Username
   void _showEditNameDialog(
     BuildContext context,
     String currentName,
@@ -253,45 +272,42 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Ubah Identitas Akun',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          isEnglish ? 'Edit Account Identity' : 'Ubah Identitas Akun',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // FIELD NAMA LENGKAP
             TextField(
               controller: nameController,
-              enabled:
-                  remainingNameDays <=
-                  0, // Kunci field jika cooldown nama aktif
+              enabled: remainingNameDays <= 0,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                labelText: "Nama Lengkap",
+                labelText: isEnglish ? "Full Name" : "Nama Lengkap",
                 prefixIcon: const Icon(Icons.person_outline, size: 20),
                 errorText: remainingNameDays > 0
-                    ? 'Tunggu $remainingNameDays hari lagi'
+                    ? (isEnglish
+                          ? 'Wait $remainingNameDays days'
+                          : 'Tunggu $remainingNameDays hari lagi')
                     : null,
               ),
               maxLength: 30,
             ),
             const SizedBox(height: 8),
-
-            // FIELD USERNAME HANDLE UNIK
             TextField(
               controller: handleController,
-              enabled:
-                  remainingUsernameDays <=
-                  0, // Kunci field jika cooldown username aktif
+              enabled: remainingUsernameDays <= 0,
               decoration: InputDecoration(
-                labelText: "Username Unik",
+                labelText: isEnglish ? "Unique Username" : "Username Unik",
                 prefixText: "@",
                 hintText: "contoh: steven_dev",
                 prefixIcon: const Icon(Icons.alternate_email, size: 20),
                 errorText: remainingUsernameDays > 0
-                    ? 'Tunggu $remainingUsernameDays hari lagi'
+                    ? (isEnglish
+                          ? 'Wait $remainingUsernameDays days'
+                          : 'Tunggu $remainingUsernameDays hari lagi')
                     : null,
               ),
               maxLength: 20,
@@ -301,11 +317,14 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              isEnglish ? 'Cancel' : 'Batal',
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: (remainingNameDays > 0 && remainingUsernameDays > 0)
-                ? null // Matikan tombol Simpan jika kedua field sedang terkunci cooldown 14 hari
+                ? null
                 : () async {
                     String newName = nameController.text.trim();
                     String newHandle = handleController.text
@@ -317,17 +336,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
                     final Map<String, dynamic> updatePayload = {};
 
-                    // 1. EVALUASI JALUR PERUBAHAN NAMA
                     if (newName != currentName && remainingNameDays <= 0) {
                       updatePayload['username'] = newName;
                       updatePayload['last_name_update'] =
                           FieldValue.serverTimestamp();
                     }
 
-                    // 2. EVALUASI JALUR PERUBAHAN USERNAME
                     if (newHandle != currentHandle &&
                         remainingUsernameDays <= 0) {
-                      // Jalankan query pengecekan keunikan username ke database server
                       final checkDuplication = await FirebaseFirestore.instance
                           .collection('users')
                           .where('username_handle', isEqualTo: newHandle)
@@ -344,7 +360,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (context.mounted) {
                           Notify.error(
                             context,
-                            '⚠️ Username telah digunakan oleh akun lain!',
+                            isEnglish
+                                ? '⚠️ Username already taken!'
+                                : '⚠️ Username telah digunakan oleh akun lain!',
                           );
                         }
                         return;
@@ -355,7 +373,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           FieldValue.serverTimestamp();
                     }
 
-                    // Eksekusi pembaruan ke database murni jika ada muatan payload data yang berubah
                     if (updatePayload.isNotEmpty) {
                       await FirebaseFirestore.instance
                           .collection('users')
@@ -366,7 +383,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (context.mounted) Navigator.pop(context);
                   },
             child: Text(
-              'Simpan',
+              isEnglish ? 'Save' : 'Simpan',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: (remainingNameDays > 0 && remainingUsernameDays > 0)
@@ -399,14 +416,16 @@ class _ProfilePageState extends State<ProfilePage> {
               size: 28,
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Ubah Target Diet',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            Text(
+              isEnglish ? 'Change Diet Program' : 'Ubah Target Diet',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
         ),
         content: Text(
-          'Apakah Anda yakin ingin mengubah fokus program ke "$displayName"?\n\nTindakan ini akan mengkalkulasi ulang seluruh target kalori harian dan batas nutrisi makro (P/K/L) Anda secara otomatis.',
+          isEnglish
+              ? 'Are you sure you want to change your program focus to "$displayName"?\n\nThis will automatically recalculate your daily calorie target and macro splits.'
+              : 'Apakah Anda yakin ingin mengubah fokus program ke "$displayName"?\n\nTindakan ini akan mengkalkulasi ulang seluruh target kalori harian dan batas nutrisi makro (P/K/L) Anda secara otomatis.',
           style: const TextStyle(fontSize: 14, height: 1.4),
         ),
         actions: [
@@ -415,7 +434,10 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(context);
               setState(() {});
             },
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              isEnglish ? 'Cancel' : 'Batal',
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -430,9 +452,9 @@ class _ProfilePageState extends State<ProfilePage> {
               Navigator.pop(context);
               _updateDietProgram(newDietCode);
             },
-            child: const Text(
-              'Ganti Program',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Text(
+              isEnglish ? 'Change Program' : 'Ganti Program',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -526,14 +548,28 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (mounted) {
         String displayName = selectedDietCode;
-        if (selectedDietCode == 'gain_muscle')
-          displayName = 'Menaikkan Massa Otot';
-        if (selectedDietCode == 'healthy_lifestyle')
-          displayName = 'Gaya Hidup Sehat';
-        if (selectedDietCode == 'keto_diet') displayName = 'Diet Keto';
-        if (selectedDietCode == 'vegetarian') displayName = 'Vegetarian';
+        if (selectedDietCode == 'gain_muscle') {
+          displayName = isEnglish ? 'Gain Muscle' : 'Menaikkan Massa Otot';
+        }
+        if (selectedDietCode == 'healthy_lifestyle') {
+          displayName = isEnglish ? 'Healthy Lifestyle' : 'Gaya Hidup Sehat';
+        }
+        if (selectedDietCode == 'keto_diet') {
+          displayName = isEnglish ? 'Keto Diet' : 'Diet Keto';
+        }
+        if (selectedDietCode == 'vegetarian') {
+          displayName = isEnglish ? 'Vegetarian' : 'Vegetarian';
+        }
+        if (selectedDietCode == 'Menurunkan Berat Badan') {
+          displayName = isEnglish ? 'Lose Weight' : 'Menurunkan Berat Badan';
+        }
 
-        Notify.success(context, '⚡ Program diganti ke $displayName!');
+        Notify.success(
+          context,
+          isEnglish
+              ? '⚡ Program switched to $displayName!'
+              : '⚡ Program diganti ke $displayName!',
+        );
       }
     } catch (e) {
       debugPrint("Gagal mengkalkulasi ulang data diet program: $e");
@@ -547,14 +583,20 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Sesi tidak ditemukan.')));
+      return Scaffold(
+        body: Center(
+          child: Text(
+            isEnglish ? 'Session not found.' : 'Sesi tidak ditemukan.',
+          ),
+        ),
+      );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Profil Pengguna',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          isEnglish ? 'User Profile' : 'Profil Pengguna',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: theme.appBarTheme.backgroundColor,
         foregroundColor: theme.appBarTheme.foregroundColor,
@@ -578,7 +620,13 @@ class _ProfilePageState extends State<ProfilePage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(child: Text('Gagal memuat database.'));
+              return Center(
+                child: Text(
+                  isEnglish
+                      ? 'Failed to load database.'
+                      : 'Gagal memuat database.',
+                ),
+              );
             }
 
             final userData = snapshot.data!.data() as Map<String, dynamic>;
@@ -590,8 +638,7 @@ class _ProfilePageState extends State<ProfilePage> {
             String currentDiet = userData['diet_code'] ?? 'healthy_lifestyle';
 
             Timestamp? lastNameUpdate = userData['last_name_update'];
-            Timestamp? lastUsernameUpdate =
-                userData['last_username_update']; // 🟢 Ambil data timestamp ganti username
+            Timestamp? lastUsernameUpdate = userData['last_username_update'];
 
             final int remainingNameDays = _getRemainingDaysToUpdateName(
               lastNameUpdate,
@@ -671,15 +718,16 @@ class _ProfilePageState extends State<ProfilePage> {
                         foregroundColor: Colors.grey.shade600,
                       ),
                       icon: const Icon(Icons.delete_outline, size: 16),
-                      label: const Text(
-                        "Hapus Foto Profil",
-                        style: TextStyle(fontSize: 13),
+                      label: Text(
+                        isEnglish
+                            ? "Delete Profile Picture"
+                            : "Hapus Foto Profil",
+                        style: const TextStyle(fontSize: 13),
                       ),
                       onPressed: () => _discardProfilePicture(context),
                     ),
                   const SizedBox(height: 8),
 
-                  // SEKSI INPUT & EDIT IDENTITAS PENGGUNA
                   Column(
                     children: [
                       Row(
@@ -708,7 +756,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               username,
                               lastNameUpdate,
                               usernameHandle,
-                              lastUsernameUpdate, // 🟢 Oper parameter baru ke struktur dialog
+                              lastUsernameUpdate,
                             ),
                           ),
                         ],
@@ -723,12 +771,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 8),
 
-                      // INDIKATOR COOLDOWN NAMA
                       if (remainingNameDays > 0)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Text(
-                            "*Nama Profil dapat diubah kembali dalam $remainingNameDays hari.",
+                            isEnglish
+                                ? "*Profile name can be changed again in $remainingNameDays days."
+                                : "*Nama Profil dapat diubah kembali dalam $remainingNameDays hari.",
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.amber.shade700,
@@ -738,12 +787,13 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
 
-                      // 🟢 INDIKATOR COOLDOWN USERNAME BARU
                       if (remainingUsernameDays > 0)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Text(
-                            "*Username unik (@) dapat diubah kembali dalam $remainingUsernameDays hari.",
+                            isEnglish
+                                ? "*Unique username (@) can be changed again in $remainingUsernameDays days."
+                                : "*Username unik (@) dapat diubah kembali dalam $remainingUsernameDays hari.",
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.purple.shade400,
@@ -760,6 +810,89 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
+                  // 🟢 SEKSI TERINTEGRASI: TOMBOL BERALIH BAHASA INDONESIA / INGGRIS (SWITCH)
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.language, color: Colors.blue),
+                      title: Text(
+                        isEnglish ? 'Language Settings' : 'Pengaturan Bahasa',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        isEnglish ? 'English (EN)' : 'Bahasa Indonesia (ID)',
+                      ),
+                      // 🟢 TOMBOL BENDERA SESUAI DENGAN BAHASA AKTIF
+                      trailing: Card(
+                        elevation:
+                            2, // Memberikan sedikit bayangan agar terlihat seperti tombol kartu
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            8,
+                          ), // Sudut tumpul agar senada dengan UI Anda
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            setState(() {
+                              isEnglish = !isEnglish;
+                              isEnglishNotifier.value = isEnglish;
+                            });
+
+                            Notify.success(
+                              context,
+                              isEnglish
+                                  ? 'Language changed to English'
+                                  : 'Bahasa berhasil diubah ke Indonesia',
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(
+                              8.0,
+                            ), // Padding agar ikon tidak terlalu mepet
+                            child: Text(
+                              isEnglish ? "🇬🇧" : "🇮🇩",
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.info_outline,
+                        color: Colors.blueGrey,
+                      ),
+                      title: Text(
+                        isEnglish ? 'About Application' : 'Tentang Aplikasi',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        isEnglish ? 'Version 1.0.0' : 'Versi 1.0.0',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        // 🟢 NAVIGASI KE ABOUT PAGE
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AboutPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -775,18 +908,22 @@ class _ProfilePageState extends State<ProfilePage> {
                             ? Colors.indigo.shade300
                             : Colors.orange,
                       ),
-                      title: const Text(
-                        'Mode Tampilan',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      title: Text(
+                        isEnglish ? 'Display Mode' : 'Mode Tampilan',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
                         themeProvider.isDarkMode
-                            ? 'Mode Gelap (Lunar)'
-                            : 'Mode Terang (Solar)',
+                            ? (isEnglish
+                                  ? 'Dark Mode (Lunar)'
+                                  : 'Mode Gelap (Lunar)')
+                            : (isEnglish
+                                  ? 'Light Mode (Solar)'
+                                  : 'Mode Terang (Solar)'),
                       ),
                       trailing: Switch(
                         value: themeProvider.isDarkMode,
-                        activeColor: Colors.indigo.shade400,
+                        activeThumbColor: Colors.indigo.shade400,
                         activeTrackColor: Colors.indigo.shade900.withOpacity(
                           0.4,
                         ),
@@ -822,7 +959,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: DropdownButtonFormField<String>(
                         key: UniqueKey(),
-                        value:
+                        initialValue:
                             _dietOptions.any(
                               (opt) => opt['code'] == currentDiet,
                             )
@@ -837,7 +974,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               : Colors.black87,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'Fokus Target Program Diet',
+                          labelText: isEnglish
+                              ? 'Diet Program Focus'
+                              : 'Fokus Target Program Diet',
                           labelStyle: TextStyle(
                             color: theme.primaryColor,
                             fontWeight: FontWeight.bold,
@@ -851,9 +990,27 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         items: _dietOptions.map((Map<String, String> option) {
+                          String translatedName = option['name']!;
+                          if (isEnglish) {
+                            if (option['code'] == 'Menurunkan Berat Badan') {
+                              translatedName = 'Lose Weight';
+                            }
+                            if (option['code'] == 'gain_muscle') {
+                              translatedName = 'Gain Muscle';
+                            }
+                            if (option['code'] == 'healthy_lifestyle') {
+                              translatedName = 'Healthy Lifestyle';
+                            }
+                            if (option['code'] == 'keto_diet') {
+                              translatedName = 'Keto Diet';
+                            }
+                            if (option['code'] == 'vegetarian') {
+                              translatedName = 'Vegetarian';
+                            }
+                          }
                           return DropdownMenuItem<String>(
                             value: option['code'],
-                            child: Text(option['name']!),
+                            child: Text(translatedName),
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
@@ -875,9 +1032,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         Icons.security_outlined,
                         color: Colors.blue,
                       ),
-                      title: const Text('Status Sertifikasi Account'),
-                      subtitle: const Text(
-                        'Terverifikasi Firebase Autentikasi',
+                      title: Text(
+                        isEnglish
+                            ? 'Account Certification Status'
+                            : 'Status Sertifikasi Account',
+                      ),
+                      subtitle: Text(
+                        isEnglish
+                            ? 'Verified by Firebase Authentication'
+                            : 'Terverifikasi Firebase Autentikasi',
                       ),
                       trailing: Icon(
                         Icons.check_circle,
@@ -950,13 +1113,17 @@ class _InlineBioCardState extends State<InlineBioCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.badge_outlined, color: Colors.teal, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(
+                      Icons.badge_outlined,
+                      color: Colors.teal,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      'Bio & Identitas Diri',
-                      style: TextStyle(
+                      isEnglish ? 'Bio & Identity' : 'Bio & Identitas Diri',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -969,9 +1136,9 @@ class _InlineBioCardState extends State<InlineBioCard> {
                       foregroundColor: widget.theme.primaryColor,
                     ),
                     icon: const Icon(Icons.check, size: 16),
-                    label: const Text(
-                      'Simpan',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      isEnglish ? 'Save' : 'Simpan',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     onPressed: () async {
                       try {
@@ -982,14 +1149,22 @@ class _InlineBioCardState extends State<InlineBioCard> {
 
                         setState(() => _isChanged = false);
 
-                        // 🟢 GANTI: ScaffoldMessenger ke Notify.success
                         if (mounted) {
-                          Notify.success(context, "Bio berhasil diperbarui!");
+                          Notify.success(
+                            context,
+                            isEnglish
+                                ? "Bio updated successfully!"
+                                : "Bio berhasil diperbarui!",
+                          );
                         }
                       } catch (e) {
-                        // 🟢 GANTI: ScaffoldMessenger ke Notify.error
                         if (mounted) {
-                          Notify.error(context, "Gagal memperbarui bio: $e");
+                          Notify.error(
+                            context,
+                            isEnglish
+                                ? "Failed to update bio: $e"
+                                : "Gagal memperbarui bio: $e",
+                          );
                         }
                       }
                     },
@@ -1007,9 +1182,10 @@ class _InlineBioCardState extends State<InlineBioCard> {
                 fontSize: 14,
                 color: widget.isDarkMode ? Colors.white : Colors.black87,
               ),
-              decoration: const InputDecoration(
-                hintText:
-                    "Ceritakan sedikit tentang target diet Anda di sini...",
+              decoration: InputDecoration(
+                hintText: isEnglish
+                    ? "Tell us a bit about your diet goals here..."
+                    : "Ceritakan sedikit tentang target diet Anda di sini...",
                 border: InputBorder.none,
                 isDense: true,
                 counterText: "",
