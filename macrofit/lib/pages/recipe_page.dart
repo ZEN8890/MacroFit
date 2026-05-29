@@ -301,7 +301,10 @@ class _RecipePageState extends State<RecipePage> {
   void _showRecipeDetail(Map<String, dynamic> recipeData, String docId) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled:
+          true, // 🟢 WAJIB TRUE agar sheet bisa naik penuh saat keyboard muncul
+      useSafeArea:
+          true, // 🟢 TAMBAHKAN INI agar insets keyboard terbaca dengan baik
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
