@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/notification_helper.dart';
 import '../utils/global_state.dart';
+import '../pages/public_profile_page.dart';
 
 class RecipeDetailSheet extends StatefulWidget {
   final Map<String, dynamic> recipeData;
@@ -32,7 +33,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
   bool _isEditMode = false;
   String? _myExistingReviewId;
 
-  // Inisialisasi awal menggunakan Map kosong untuk mencegah LateInitializationError
   Map<String, dynamic> _currentRecipeMap = {};
 
   @override
@@ -48,7 +48,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
     super.dispose();
   }
 
-  // Background stream listener untuk memantau perubahan data resep
   void _listenToRecipeChanges() {
     _firestore.collection('recipes').doc(widget.docId).snapshots().listen((
       snapshot,
@@ -61,7 +60,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
     });
   }
 
-  // Helper format timestamp ke teks manusia
   String _formatTimestamp(dynamic timestamp, bool isEnglish) {
     if (timestamp == null) return isEnglish ? 'Just now' : 'Baru saja';
     if (timestamp is Timestamp) {
@@ -103,7 +101,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
     return '';
   }
 
-  // Fungsi Kirim Ulasan Baru
   Future<void> _submitComment() async {
     final bool isEnglish = isEnglishNotifier.value;
     if (_selectedRating == 0) {
@@ -273,6 +270,22 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
     );
   }
 
+  // 🟢 FUNGSI YANG SUDAH DIPERBAIKI SINKRON DENGAN PUBLIC PROFILE PAGE
+  void _navigateToPublicProfile(String targetUserId) {
+    if (targetUserId == widget.currentUserId) {
+      // Jika mengklik ulasan diri sendiri, diamkan saja
+      return;
+    }
+
+    // Arahkan navigasi dengan parameter yang benar (targetUserId)
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PublicProfilePage(targetUserId: targetUserId),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
@@ -289,8 +302,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
         final bool isAuthor =
             _currentRecipeMap['userId'] == widget.currentUserId;
         final bool isEditLocked = savedByList.length >= 1;
-
-        // 🟢 ATURAN BARU: Cek apakah resep ini tipe AI Generated
         final bool isAiRecipe = _currentRecipeMap['type'] == 'AI';
 
         String recipeUsername =
@@ -313,13 +324,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
               ),
               child: SingleChildScrollView(
                 controller: scrollController,
-                // 🟢 FIX KEYBOARD: Tambahkan padding bottom otomatis mengikuti tinggi keyboard yang aktif
-                padding: EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  top: 24,
-                  bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
-                ),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -331,7 +336,11 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+
+                    const SizedBox(
+                      height: 2,
+                    ), // 🟢 SEBELUMNYA 8, DIUBAH JADI 2 AGAR JARKANYA RAPAT
+
                     Text(
                       englishActive
                           ? 'By: @$recipeUsername'
@@ -349,7 +358,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                     ),
                     const SizedBox(height: 12),
 
-                    // BUTTONS ACTION AUTHOR VALIDATION (Hanya untuk resep non-AI)
+                    // BUTTONS ACTION AUTHOR VALIDATION
                     if (isAuthor && !isAiRecipe) ...[
                       Row(
                         children: [
@@ -558,11 +567,10 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                             },
                           ),
 
-                    // 🟢 KONDISI JITU: Jika Resep bertipe AI, hentikan render seksi review ke bawah
+                    // SEKSI REVIEWS KOMUNITAS (HANYA MUNCUL JIKALAU NON-AI RECIPE)
                     if (!isAiRecipe) ...[
                       const Divider(height: 32),
 
-                      // SEKSI ULASAN KOMUNITAS ALA GOOGLE MAPS
                       StreamBuilder<QuerySnapshot>(
                         stream: _firestore
                             .collection('recipe_comments')
@@ -592,11 +600,15 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
 
                           return StatefulBuilder(
                             builder: (context, setReviewState) {
+                              // 🟢 AMBIL SEMUA DATA SESUAI FILTER (Tanpa dipotong .take(3) lagi)
                               final docs = rawDocs.where((doc) {
                                 final d = doc.data() as Map<String, dynamic>;
                                 if (_filterRating == 0) return true;
                                 return (d['rating'] ?? 0) == _filterRating;
                               }).toList();
+
+                              final ScrollController reviewScrollController =
+                                  ScrollController();
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,7 +624,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // Filter Chips Google Maps Style
+                                  // Google Maps Filter Chips Style
                                   SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
                                     physics: const BouncingScrollPhysics(),
@@ -662,221 +674,260 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // List Review Box (Scrollable Mandiri)
+                                  // List Review Box (Visual Tinggi Terkunci Setara 3 List, Tapi Bisa Di-scroll Kebawah Untuk Melihat Semua Komen)
                                   Container(
                                     constraints: const BoxConstraints(
-                                      maxHeight: 220,
+                                      maxHeight: 180,
                                     ),
                                     decoration: BoxDecoration(
                                       color: theme.disabledColor.withOpacity(
                                         0.03,
                                       ),
                                       borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: theme.dividerColor.withOpacity(
+                                          0.3,
+                                        ),
+                                      ),
                                     ),
                                     child: docs.isEmpty
                                         ? Padding(
                                             padding: const EdgeInsets.all(16.0),
-                                            child: Text(
-                                              englishActive
-                                                  ? 'No reviews found.'
-                                                  : 'Belum ada ulasan untuk rating ini.',
-                                              style: const TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 13,
+                                            child: Center(
+                                              child: Text(
+                                                englishActive
+                                                    ? 'No reviews found.'
+                                                    : 'Belum ada ulasan untuk rating ini.',
+                                                style: const TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 13,
+                                                ),
                                               ),
                                             ),
                                           )
-                                        : ListView.separated(
-                                            shrinkWrap: true,
-                                            physics:
-                                                const BouncingScrollPhysics(),
-                                            padding: const EdgeInsets.all(12),
-                                            itemCount: docs.length,
-                                            separatorBuilder:
-                                                (context, index) =>
-                                                    const Divider(
-                                                      height: 16,
-                                                      color: Colors.black12,
-                                                    ),
-                                            itemBuilder: (context, i) {
-                                              final d =
-                                                  docs[i].data()
-                                                      as Map<String, dynamic>;
-                                              final String text =
-                                                  (d['commentText'] ?? '')
-                                                      .toString()
-                                                      .trim();
-                                              final bool isMyOwn =
-                                                  d['userId'] ==
-                                                  widget.currentUserId;
-                                              final bool isEdited =
-                                                  d['is_edited'] ?? false;
-
-                                              return Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      CircleAvatar(
-                                                        radius: 16,
-                                                        backgroundImage:
-                                                            d['userProfilePic'] !=
-                                                                    null &&
-                                                                d['userProfilePic']
-                                                                    .toString()
-                                                                    .isNotEmpty
-                                                            ? NetworkImage(
-                                                                d['userProfilePic'],
-                                                              )
-                                                            : null,
-                                                        child:
-                                                            d['userProfilePic'] ==
-                                                                    null ||
-                                                                d['userProfilePic']
-                                                                    .toString()
-                                                                    .isEmpty
-                                                            ? const Icon(
-                                                                Icons.person,
-                                                                size: 16,
-                                                              )
-                                                            : null,
+                                        : Scrollbar(
+                                            controller: reviewScrollController,
+                                            thumbVisibility: true,
+                                            radius: const Radius.circular(8),
+                                            child: ListView.separated(
+                                              controller:
+                                                  reviewScrollController,
+                                              shrinkWrap: true,
+                                              padding: const EdgeInsets.all(12),
+                                              itemCount: docs.length,
+                                              physics:
+                                                  const AlwaysScrollableScrollPhysics(
+                                                    parent:
+                                                        BouncingScrollPhysics(),
+                                                  ),
+                                              separatorBuilder:
+                                                  (context, index) =>
+                                                      const Divider(
+                                                        height: 16,
+                                                        color: Colors.black12,
                                                       ),
-                                                      const SizedBox(width: 10),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Row(
-                                                              children: [
-                                                                Text(
-                                                                  '@${d['username_handle'] ?? 'user'}',
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    fontSize:
-                                                                        13,
-                                                                  ),
-                                                                ),
-                                                                if (isMyOwn) ...[
-                                                                  const SizedBox(
-                                                                    width: 6,
-                                                                  ),
-                                                                  Container(
-                                                                    padding: const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          6,
-                                                                      vertical:
-                                                                          2,
-                                                                    ),
-                                                                    decoration: BoxDecoration(
-                                                                      color: theme
-                                                                          .primaryColor
-                                                                          .withOpacity(
-                                                                            0.15,
-                                                                          ),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                            8,
-                                                                          ),
-                                                                    ),
+                                              itemBuilder: (context, i) {
+                                                final d =
+                                                    docs[i].data()
+                                                        as Map<String, dynamic>;
+                                                final String text =
+                                                    (d['commentText'] ?? '')
+                                                        .toString()
+                                                        .trim();
+                                                final bool isMyOwn =
+                                                    d['userId'] ==
+                                                    widget.currentUserId;
+                                                final bool isEdited =
+                                                    d['is_edited'] ?? false;
+                                                final String commenterId =
+                                                    d['userId'] ?? '';
+
+                                                return Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        GestureDetector(
+                                                          onTap: () =>
+                                                              _navigateToPublicProfile(
+                                                                commenterId,
+                                                              ),
+                                                          child: CircleAvatar(
+                                                            radius: 16,
+                                                            backgroundImage:
+                                                                d['userProfilePic'] !=
+                                                                        null &&
+                                                                    d['userProfilePic']
+                                                                        .toString()
+                                                                        .isNotEmpty
+                                                                ? NetworkImage(
+                                                                    d['userProfilePic'],
+                                                                  )
+                                                                : null,
+                                                            child:
+                                                                d['userProfilePic'] ==
+                                                                        null ||
+                                                                    d['userProfilePic']
+                                                                        .toString()
+                                                                        .isEmpty
+                                                                ? const Icon(
+                                                                    Icons
+                                                                        .person,
+                                                                    size: 16,
+                                                                  )
+                                                                : null,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 10,
+                                                        ),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Row(
+                                                                children: [
+                                                                  GestureDetector(
+                                                                    onTap: () =>
+                                                                        _navigateToPublicProfile(
+                                                                          commenterId,
+                                                                        ),
                                                                     child: Text(
-                                                                      englishActive
-                                                                          ? "You"
-                                                                          : "Anda",
+                                                                      '@${d['username_handle'] ?? 'user'}',
                                                                       style: TextStyle(
-                                                                        fontSize:
-                                                                            10,
-                                                                        color: theme
-                                                                            .primaryColor,
                                                                         fontWeight:
                                                                             FontWeight.bold,
+                                                                        fontSize:
+                                                                            13,
+                                                                        color:
+                                                                            isMyOwn
+                                                                            ? theme.textTheme.bodyLarge?.color
+                                                                            : theme.primaryColor,
                                                                       ),
                                                                     ),
                                                                   ),
-                                                                ],
-                                                                const SizedBox(
-                                                                  width: 8,
-                                                                ),
-                                                                Text(
-                                                                  _formatTimestamp(
-                                                                    d['timestamp'],
-                                                                    englishActive,
-                                                                  ),
-                                                                  style: const TextStyle(
-                                                                    fontSize:
-                                                                        11,
-                                                                    color: Colors
-                                                                        .grey,
-                                                                  ),
-                                                                ),
-                                                                if (isEdited) ...[
+                                                                  if (isMyOwn) ...[
+                                                                    const SizedBox(
+                                                                      width: 6,
+                                                                    ),
+                                                                    Container(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            6,
+                                                                        vertical:
+                                                                            2,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: theme
+                                                                            .primaryColor
+                                                                            .withOpacity(
+                                                                              0.15,
+                                                                            ),
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(
+                                                                              8,
+                                                                            ),
+                                                                      ),
+                                                                      child: Text(
+                                                                        englishActive
+                                                                            ? "You"
+                                                                            : "Anda",
+                                                                        style: TextStyle(
+                                                                          fontSize:
+                                                                              10,
+                                                                          color:
+                                                                              theme.primaryColor,
+                                                                          fontWeight:
+                                                                              FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
                                                                   const SizedBox(
-                                                                    width: 6,
+                                                                    width: 8,
                                                                   ),
                                                                   Text(
-                                                                    englishActive
-                                                                        ? '(Edited)'
-                                                                        : '(Diedit)',
-                                                                    style: TextStyle(
+                                                                    _formatTimestamp(
+                                                                      d['timestamp'],
+                                                                      englishActive,
+                                                                    ),
+                                                                    style: const TextStyle(
                                                                       fontSize:
                                                                           11,
                                                                       color: Colors
-                                                                          .grey
-                                                                          .shade500,
-                                                                      fontStyle:
-                                                                          FontStyle
-                                                                              .italic,
+                                                                          .grey,
                                                                     ),
                                                                   ),
-                                                                ],
-                                                              ],
-                                                            ),
-                                                            Row(
-                                                              children: List.generate(
-                                                                5,
-                                                                (index) => Icon(
-                                                                  Icons.star,
-                                                                  size: 11,
-                                                                  color:
-                                                                      index <
-                                                                          (d['rating'] ??
-                                                                              0)
-                                                                      ? Colors
-                                                                            .amber
-                                                                      : Colors
+                                                                  if (isEdited) ...[
+                                                                    const SizedBox(
+                                                                      width: 6,
+                                                                    ),
+                                                                    Text(
+                                                                      englishActive
+                                                                          ? '(Edited)'
+                                                                          : '(Diedit)',
+                                                                      style: TextStyle(
+                                                                        fontSize:
+                                                                            11,
+                                                                        color: Colors
                                                                             .grey
-                                                                            .shade300,
+                                                                            .shade500,
+                                                                        fontStyle:
+                                                                            FontStyle.italic,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ],
+                                                              ),
+                                                              Row(
+                                                                children: List.generate(
+                                                                  5,
+                                                                  (
+                                                                    index,
+                                                                  ) => Icon(
+                                                                    Icons.star,
+                                                                    size: 11,
+                                                                    color:
+                                                                        index <
+                                                                            (d['rating'] ??
+                                                                                0)
+                                                                        ? Colors
+                                                                              .amber
+                                                                        : Colors
+                                                                              .grey
+                                                                              .shade300,
+                                                                  ),
                                                                 ),
                                                               ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    if (text.isNotEmpty) ...[
+                                                      const SizedBox(height: 6),
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              left: 42.0,
                                                             ),
-                                                          ],
+                                                        child: Text(
+                                                          text,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 13,
+                                                                height: 1.3,
+                                                              ),
                                                         ),
                                                       ),
                                                     ],
-                                                  ),
-                                                  if (text.isNotEmpty) ...[
-                                                    const SizedBox(height: 6),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            left: 42.0,
-                                                          ),
-                                                      child: Text(
-                                                        text,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          height: 1.3,
-                                                        ),
-                                                      ),
-                                                    ),
                                                   ],
-                                                ],
-                                              );
-                                            },
+                                                );
+                                              },
+                                            ),
                                           ),
                                   ),
 
