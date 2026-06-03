@@ -4,21 +4,43 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/ai_recommendation_services.dart';
 import '../utils/global_state.dart';
 
-class RestaurantDetailSheet extends StatelessWidget {
+class RestaurantDetailSheet extends StatefulWidget {
   final Map<String, dynamic> restaurant;
   final double distance;
-  final AIRecommendationService _aiService = AIRecommendationService();
 
-  RestaurantDetailSheet({
+  const RestaurantDetailSheet({
     super.key,
     required this.restaurant,
     required this.distance,
   });
 
+  @override
+  State<RestaurantDetailSheet> createState() => _RestaurantDetailSheetState();
+}
+
+class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
+  final AIRecommendationService _aiService = AIRecommendationService();
+
+  // 🟢 Definisikan variabel penampung Future agar tidak ter-rebuild saat digeser
+  Future<Map<String, dynamic>>? _aiRecommendationFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // 🟢 Kunci pemanggilan API AI tepat saat sheet pertama kali diinisialisasi
+    _aiRecommendationFuture = _aiService.getAIRecommendation(
+      restaurantName: widget.restaurant['name'] ?? 'Restoran',
+      cuisineType: widget.restaurant['type'] ?? 'Tempat Makan',
+      userTargetCalorie: 2500,
+      isBulking: false,
+      isEnglish: isEnglishNotifier.value, // Gunakan state bahasa awal
+    );
+  }
+
   Future<void> _launchMaps() async {
-    final double lat = restaurant['lat'] ?? 0.0;
-    final double lng = restaurant['lng'] ?? 0.0;
-    final String name = restaurant['name'] ?? 'Restaurant';
+    final double lat = widget.restaurant['lat'] ?? 0.0;
+    final double lng = widget.restaurant['lng'] ?? 0.0;
+    final String name = widget.restaurant['name'] ?? 'Restaurant';
     String encodedName = Uri.encodeComponent(name);
     String androidIntentUrl = "geo:0,0?q=$lat,$lng($encodedName)";
 
@@ -37,8 +59,8 @@ class RestaurantDetailSheet extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final String googleApiKey = (dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '')
         .trim();
-    final double resLat = restaurant['lat'] ?? 0.0;
-    final double resLng = restaurant['lng'] ?? 0.0;
+    final double resLat = widget.restaurant['lat'] ?? 0.0;
+    final double resLng = widget.restaurant['lng'] ?? 0.0;
     final String staticMapUrl =
         "https://maps.googleapis.com/maps/api/staticmap?center=$resLat,$resLng&zoom=16&size=450x180&markers=color:red%7C$resLat,$resLng&key=$googleApiKey";
 
@@ -59,21 +81,20 @@ class RestaurantDetailSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Handle bar seretan atas
                 Center(
                   child: Container(
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.4,
-                      ),
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Judul & Rating
+                // Judul & Rating Restoran
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -82,7 +103,7 @@ class RestaurantDetailSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            restaurant['name'] ?? 'Restaurant',
+                            widget.restaurant['name'] ?? 'Restaurant',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -97,7 +118,8 @@ class RestaurantDetailSheet extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                "${(restaurant['rating'] ?? 4.0).toStringAsFixed(1)}",
+                                (widget.restaurant['rating'] ?? 4.0)
+                                    .toStringAsFixed(1),
                               ),
                             ],
                           ),
@@ -112,7 +134,7 @@ class RestaurantDetailSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Lokasi
+                // Lokasi Preview Map Statis
                 Text(
                   englishActive ? "Location Preview" : "Estimasi Lokasi Tujuan",
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -132,9 +154,7 @@ class RestaurantDetailSheet extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.5,
-                    ),
+                    color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -144,8 +164,8 @@ class RestaurantDetailSheet extends StatelessWidget {
                       Expanded(
                         child: Text(
                           englishActive
-                              ? "Distance: ${distance.toStringAsFixed(2)} km"
-                              : "Jarak: ${distance.toStringAsFixed(2)} km",
+                              ? "Distance: ${widget.distance.toStringAsFixed(2)} km"
+                              : "Jarak: ${widget.distance.toStringAsFixed(2)} km",
                         ),
                       ),
                     ],
@@ -153,18 +173,19 @@ class RestaurantDetailSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // AI Recommendation Section
+                // 🟢 AI Recommendation Section dengan Future Terkunci (Anti-Refresh)
                 FutureBuilder<Map<String, dynamic>>(
-                  future: _aiService.getAIRecommendation(
-                    restaurantName: restaurant['name'] ?? 'Restoran',
-                    cuisineType: restaurant['type'] ?? 'Tempat Makan',
-                    userTargetCalorie: 2500,
-                    isBulking: false,
-                    isEnglish: englishActive,
-                  ),
+                  future:
+                      _aiRecommendationFuture, // Gunakan objek lokal dari initState
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting)
-                      return const Center(child: CircularProgressIndicator());
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
                     if (!snapshot.hasData) return const SizedBox.shrink();
 
                     final ai = snapshot.data!;
@@ -177,8 +198,8 @@ class RestaurantDetailSheet extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withValues(
-                              alpha: 0.25,
+                            color: colorScheme.primaryContainer.withOpacity(
+                              0.25,
                             ),
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -225,6 +246,8 @@ class RestaurantDetailSheet extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 25),
+
+                // Tombol Navigasi Google Maps intent
                 SizedBox(
                   width: double.infinity,
                   height: 50,

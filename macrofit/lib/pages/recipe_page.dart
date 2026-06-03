@@ -149,27 +149,28 @@ class _RecipePageState extends State<RecipePage> {
         ),
       );
 
-      // 🟢 SINKRONISASI BAHASA PROMPT AI: Sampaikan instruksi bahasa secara tegas ke Gemini AI
+      // SINKRONISASI BAHASA PROMPT AI
       String targetLanguageInstruction = isEnglishNotifier.value
           ? "Strictly generate the entire recipe response (title, ingredients, instructions, and suitable_diet value description) in English language. For suitable_diet key, use raw exact value from the options list below, but ensure any descriptive textual data is English."
           : "Tolong generate seluruh respon resep ini (termasuk judul, bahan-bahan, langkah memasak) dalam Bahasa Indonesia secara konsisten.";
 
+      // 🟢 OPTIMASI PROMPT: Menurunkan target menjadi TEPAT 3 resep agar token tidak overload & JSON tidak terputus
       final prompt =
           '''
       Anda adalah Chef Gizi Profesional untuk aplikasi MacroFit.
-      Tugas Anda adalah merancang TEPAT 10 recommendation resep makanan sehat yang berbeda, unik, bervariasi, dan sangat kreatif agar pengguna tidak bosan.
+      Tugas Anda adalah merancang TEPAT 3 rekomendasi resep makanan sehat yang berbeda, unik, bervariasi, dan sangat kreatif agar pengguna tidak bosan.
       Seluruh resep harus disesuaikan secara ilmiah untuk profil diet berikut:
       - Tipe Program Diet: $dietCode
       - Target Kalori Harian Pengguna: $targetCalorie kkal
 
       $targetLanguageInstruction
 
-      Berikan output HARUS dalam format JSON Array murni yang berisi 10 objek resep. Jangan berikan teks penjelasan markdown di luar JSON.
+      Berikan output HARUS dalam format JSON Array murni yang berisi TEPAT 3 objek resep. Jangan berikan teks penjelasan atau tanda markdown luar apa pun di luar JSON Array. Pastikan response selesai ditulis penuh dan tidak terputus di tengah jalan.
       
       ⚠️ ATURAN SANGAT KETAT UNTUK KATEGORI DIET:
       1. Untuk properti "suitable_diet", Anda HARUS memilih salah satu nilai yang tepat dari daftar resmi berikut: ${_dietOptions.join(', ')}. Sesuaikan dengan program diet pengguna saat ini ($dietCode).
       2. Untuk properti "unsuitable_diet", pilih satu nilai dari daftar di atas yang paling tidak cocok sebagai pantangan makanan tersebut, atau berikan nilai "None" jika aman untuk semua diet.
-      3. 🟢 TAMBAHKAN PROPERTI "image_keyword": Pilih 1 hingga 2 kata kunci pencarian gambar makanan dalam bahasa Inggris yang paling akurat menggambarkan hidangan ini (Contoh: "avocado_omelette", "berry_oatmeal", "chicken_breast_salad").
+      3. TAMBAHKAN PROPERTI "image_keyword": Pilih 1 hingga 2 kata kunci pencarian gambar makanan dalam bahasa Inggris yang paling akurat menggambarkan hidangan ini (Contoh: "avocado_omelette", "berry_oatmeal", "chicken_breast_salad").
       
       Pastikan semua huruf pada key (kunci) menggunakan HURUF KECIL SEMUA seperti contoh berikut:
       [
@@ -188,51 +189,75 @@ class _RecipePageState extends State<RecipePage> {
       final response = await model.generateContent([Content.text(prompt)]);
 
       if (response.text != null && response.text!.isNotEmpty) {
-        final List<dynamic> aiRecipesList = json.decode(response.text!);
-        final batchInsert = _firestore.batch();
-
-        for (var recipe in aiRecipesList) {
-          final docRef = _firestore.collection('recipes').doc();
-
-          String aiSuitable = recipe['suitable_diet'] ?? dietCode;
-          String aiUnsuitable = recipe['unsuitable_diet'] ?? 'None';
-
-          if (!_dietOptions.contains(aiSuitable)) aiSuitable = dietCode;
-          if (aiUnsuitable != 'None' && !_dietOptions.contains(aiUnsuitable)) {
-            aiUnsuitable = 'None';
-          }
-
-          batchInsert.set(docRef, {
-            'title':
-                recipe['title'] ??
-                (isEnglishNotifier.value
-                    ? 'AI Healthy Culinary Recipe'
-                    : 'Resep Kuliner Sehat AI'),
-            'calories': recipe['calories'] ?? 0,
-            'image_url': null,
-            'image_keyword': recipe['image_keyword'] ?? 'healthy_food',
-            'username': 'MacroFit AI',
-            'type': 'AI',
-            'ingredients': recipe['ingredients'] ?? [],
-            'instructions': recipe['instructions'] ?? [],
-            'timestamp': FieldValue.serverTimestamp(),
-            'savedBy': [],
-            'suitable_diet': aiSuitable,
-            'unsuitable_diet': aiUnsuitable,
-          });
+        // 🟢 PROSES SANITASI STRING: Membersihkan response teks dari white-space dan tag markdown liar
+        String cleanedText = response.text!.trim();
+        if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText
+              .replaceAll('```json', '')
+              .replaceAll('```', '')
+              .trim();
         }
-        await batchInsert.commit();
 
-        if (!isAutoRefresh) {
-          final prefs = await SharedPreferences.getInstance();
-          if (mounted) {
-            setState(() {
-              _remainingCounter--;
-              _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
-                  .toString();
+        // 🟢 TRY-CATCH PARSING LEVEL: Mengisolasi json.decode agar kegagalan parsing tidak membuat aplikasi crash
+        try {
+          final List<dynamic> aiRecipesList = json.decode(cleanedText);
+          final batchInsert = _firestore.batch();
+
+          for (var recipe in aiRecipesList) {
+            final docRef = _firestore.collection('recipes').doc();
+
+            String aiSuitable = recipe['suitable_diet'] ?? dietCode;
+            String aiUnsuitable = recipe['unsuitable_diet'] ?? 'None';
+
+            if (!_dietOptions.contains(aiSuitable)) aiSuitable = dietCode;
+            if (aiUnsuitable != 'None' &&
+                !_dietOptions.contains(aiUnsuitable)) {
+              aiUnsuitable = 'None';
+            }
+
+            batchInsert.set(docRef, {
+              'title':
+                  recipe['title'] ??
+                  (isEnglishNotifier.value
+                      ? 'AI Healthy Culinary Recipe'
+                      : 'Resep Kuliner Sehat AI'),
+              'calories': recipe['calories'] ?? 0,
+              'image_url': null,
+              'image_keyword': recipe['image_keyword'] ?? 'healthy_food',
+              'username': 'MacroFit AI',
+              'type': 'AI',
+              'ingredients': recipe['ingredients'] ?? [],
+              'instructions': recipe['instructions'] ?? [],
+              'timestamp': FieldValue.serverTimestamp(),
+              'savedBy': [],
+              'suitable_diet': aiSuitable,
+              'unsuitable_diet': aiUnsuitable,
             });
           }
-          await prefs.setInt('ai_recipe_click_counter', _remainingCounter);
+          await batchInsert.commit();
+
+          if (!isAutoRefresh) {
+            final prefs = await SharedPreferences.getInstance();
+            if (mounted) {
+              setState(() {
+                _remainingCounter--;
+                _refreshTriggerKey = DateTime.now().millisecondsSinceEpoch
+                    .toString();
+              });
+            }
+            await prefs.setInt('ai_recipe_click_counter', _remainingCounter);
+          }
+        } catch (jsonError) {
+          // Menangani kesalahan struktur JSON secara aman & informatif
+          debugPrint("Gagal mengurai JSON dari AI: $jsonError");
+          if (mounted) {
+            Notify.error(
+              context,
+              isEnglishNotifier.value
+                  ? 'AI formatting error. Please try again.'
+                  : 'Struktur resep AI tidak valid. Silakan coba lagi.',
+            );
+          }
         }
       }
     } catch (e) {
@@ -505,7 +530,6 @@ class _RecipePageState extends State<RecipePage> {
 
   Widget _buildAITabView(bool isEnglish) {
     final theme = Theme.of(context);
-    final bool isButtonDisabled = _remainingCounter <= 0 || _isGeneratingAI;
 
     return Column(
       children: [
@@ -550,6 +574,7 @@ class _RecipePageState extends State<RecipePage> {
                 ),
               ),
               const SizedBox(width: 12),
+              // Kondisi Loading Indicator saat AI sedang bekerja
               _isGeneratingAI
                   ? const CircularProgressIndicator(strokeWidth: 3)
                   : SizedBox(
@@ -557,10 +582,11 @@ class _RecipePageState extends State<RecipePage> {
                       height: 38,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isButtonDisabled
+                          // 🟢 WARNA DINAMIS: Berubah jadi abu-abu jika sisa counter habis
+                          backgroundColor: _remainingCounter <= 0
                               ? Colors.grey.shade400
                               : theme.primaryColor,
-                          foregroundColor: isButtonDisabled
+                          foregroundColor: _remainingCounter <= 0
                               ? Colors.grey.shade600
                               : Colors.white,
                           padding: const EdgeInsets.symmetric(
@@ -570,11 +596,11 @@ class _RecipePageState extends State<RecipePage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          elevation: isButtonDisabled ? 0 : 2,
+                          elevation: _remainingCounter <= 0 ? 0 : 2,
                         ),
                         icon: Icon(
                           Icons.bolt,
-                          color: isButtonDisabled
+                          color: _remainingCounter <= 0
                               ? Colors.grey.shade600
                               : Colors.amber,
                           size: 16,
@@ -586,9 +612,20 @@ class _RecipePageState extends State<RecipePage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        onPressed: isButtonDisabled
-                            ? null
-                            : () => _generateAIRecipe(isAutoRefresh: false),
+                        // 🟢 FIX UTAMA: Validasi limit harian dievaluasi langsung di dalam fungsi onPressed
+                        onPressed: () {
+                          if (_remainingCounter <= 0) {
+                            Notify.error(
+                              context,
+                              isEnglish
+                                  ? 'Daily generation limit reached!'
+                                  : 'Batas limit harian habis!',
+                            );
+                            return;
+                          }
+                          // Jika lolos validasi harian, jalankan generator resep sehat Gemini AI
+                          _generateAIRecipe(isAutoRefresh: false);
+                        },
                       ),
                     ),
             ],
