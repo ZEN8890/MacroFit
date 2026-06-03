@@ -7,7 +7,7 @@ import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/comment_card.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class CommentPage extends StatefulWidget {
   final String postId;
@@ -78,6 +78,7 @@ class _CommentPageState extends State<CommentPage> {
       } else {
         List<String> uploadedImageUrls = [];
         if (_selectedCommentImages.isNotEmpty) {
+          // 🟢 PERBAIKAN: Ganti Future.withValues menjadi Future.wait
           uploadedImageUrls = await Future.wait(
             _selectedCommentImages.map(
               (img) => _storageService.uploadImage(img, 'comments'),
@@ -170,14 +171,12 @@ class _CommentPageState extends State<CommentPage> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman Forum balasan dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
         return Scaffold(
           resizeToAvoidBottomInset: true,
           appBar: AppBar(
-            // 🟢 DINAMIS MULTI-BAHASA PADA TITLE APPBAR
             title: Text(
               _editingCommentId != null
                   ? (englishActive ? 'Edit Comment' : 'Edit Komentar')
@@ -280,10 +279,17 @@ class _CommentPageState extends State<CommentPage> {
                           });
                         }
 
+                        // 🟢 FIX PENJUMLAHAN COUNTER:
+                        // Menghitung secara dinamis selisih jumlah ulasan balasan yang benar-benar disembunyikan
+                        final int hiddenCount =
+                            allChainReplies.length - displayReplies.length;
+
                         finalDisplayList.add({
                           'type': 'button',
                           'rootId': rootId,
                           'totalReplies': allChainReplies.length,
+                          'hiddenCount':
+                              hiddenCount, // Suntikkan sisa balasan tersembunyi ke map list
                           'isHidden': isHidden,
                         });
                       }
@@ -292,7 +298,6 @@ class _CommentPageState extends State<CommentPage> {
                     if (finalDisplayList.isEmpty) {
                       return Center(
                         child: Text(
-                          // 🟢 DINAMIS MULTI-BAHASA JIKA KOMENTAR MASIH KOSONG
                           englishActive
                               ? 'No replies yet. Be the first to reply!'
                               : 'Belum ada balasan. Jadilah yang pertama!',
@@ -312,11 +317,15 @@ class _CommentPageState extends State<CommentPage> {
                           final bool isHidden = item['isHidden'];
                           final int total = item['totalReplies'];
 
+                          // 🟢 AMBIL ANGKA NYATA SISANYA
+                          final int hiddenCount = item['hiddenCount'] ?? 0;
+
                           return Padding(
                             padding: const EdgeInsets.only(
                               left: 48.0,
                               bottom: 12.0,
                               top: 4.0,
+                              right: 16.0,
                             ),
                             child: Align(
                               alignment: Alignment.centerLeft,
@@ -344,11 +353,13 @@ class _CommentPageState extends State<CommentPage> {
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        // 🟢 DINAMIS MULTI-BAHASA PADA TOMBOL EXPAND BALASAN THREAD
+                                        // 🟢 LOGIKA STRATEGIS COUNTER UI/UX FORUM:
+                                        // Saat ditutup (isHidden = true), tampilkan sisa jumlah ulasan komentar yang tersembunyi.
+                                        // Contoh: jika ada 5 balasan, 2 tampil di awal, maka tombol bertuliskan "Lihat balasan (3)"
                                         isHidden
                                             ? (englishActive
-                                                  ? 'View replies ($total)'
-                                                  : 'Lihat balasan ($total)')
+                                                  ? 'View replies ($hiddenCount)'
+                                                  : 'Lihat balasan ($hiddenCount)')
                                             : (englishActive
                                                   ? 'Hide replies'
                                                   : 'Sembunyikan balasan'),
@@ -403,43 +414,6 @@ class _CommentPageState extends State<CommentPage> {
                   },
                 ),
               ),
-              if (_replyingToCommentData != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: theme.primaryColor.withOpacity(0.1),
-                  child: Row(
-                    children: [
-                      Icon(Icons.reply, size: 16, color: theme.primaryColor),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          // 🟢 DINAMIS MULTI-BAHASA PADA LABEL PREVIEW TINDAKAN MEMBALAS KOMENTAR
-                          englishActive
-                              ? "Replying to @${_replyingToCommentData!['username']}: \"${_getPreview(_replyingToCommentData!['content'])}\""
-                              : "Membalas ke @${_replyingToCommentData!['username']}: \"${_getPreview(_replyingToCommentData!['content'])}\"",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.primaryColor,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        onPressed: () => setState(() {
-                          _replyToParentId = null;
-                          _replyingToCommentData = null;
-                          _commentController.clear();
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
               StreamBuilder<DocumentSnapshot>(
                 stream: _firestore
                     .collection('users')
