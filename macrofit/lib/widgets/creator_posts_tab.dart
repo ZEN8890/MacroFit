@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../pages/comment_page.dart'; // 🟢 FIX IMPOR: Pastikan lokasi impor berkas CommentPage Anda sudah benar
 
 class CreatorPostsTab extends StatelessWidget {
   final String targetUserId;
@@ -11,10 +13,52 @@ class CreatorPostsTab extends StatelessWidget {
     required this.englishActive,
   });
 
+  // Fungsi Toggle Like secara Interaktif langsung ke Firestore Array
+  Future<void> _toggleLikePost(
+    String postId,
+    List<dynamic> currentLikes,
+    String currentUid,
+  ) async {
+    final docRef = FirebaseFirestore.instance.collection('posts').doc(postId);
+    try {
+      if (currentLikes.contains(currentUid)) {
+        await docRef.update({
+          'likes': FieldValue.arrayRemove([currentUid]),
+        });
+      } else {
+        await docRef.update({
+          'likes': FieldValue.arrayUnion([currentUid]),
+        });
+      }
+    } catch (e) {
+      debugPrint("Gagal menjalankan interaksi like: $e");
+    }
+  }
+
+  // 🟢 FIX UTAMA: Mengalihkan Lembar BottomSheet lama langsung ke CommentPage Asli Anda
+  void _openCommentSection(
+    BuildContext context,
+    String postId,
+    String postUsername,
+    String postContent,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CommentPage(
+          postId: postId,
+          postUsername: postUsername,
+          postContent: postContent,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final String currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -47,12 +91,17 @@ class CreatorPostsTab extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           itemCount: postDocs.length,
           itemBuilder: (context, index) {
+            final docId = postDocs[index].id;
             final pData = postDocs[index].data() as Map<String, dynamic>;
 
             String contentText = pData['content'] ?? '';
+            String authorName =
+                pData['username'] ??
+                'User MacroFit'; // Mengambil nama pembuat forum
             List<dynamic> likesArray = pData['likes'] ?? [];
-            int likeCount = likesArray.length;
             int commentCount = pData['comment_count'] ?? 0;
+
+            bool isLikedByMe = likesArray.contains(currentUid);
 
             List<dynamic> imageList = pData['image_urls'] ?? [];
             String postImageUrl = imageList.isNotEmpty
@@ -63,7 +112,6 @@ class CreatorPostsTab extends StatelessWidget {
             if (pData['timestamp'] != null) {
               final Timestamp ts = pData['timestamp'] as Timestamp;
               final DateTime dt = ts.toDate();
-
               final List<String> monthsID = [
                 'Jan',
                 'Feb',
@@ -92,15 +140,8 @@ class CreatorPostsTab extends StatelessWidget {
                 'Nov',
                 'Dec',
               ];
-              final List<String> activeMonths = englishActive
-                  ? monthsEN
-                  : monthsID;
-
-              final String minutes = dt.minute < 10
-                  ? '0${dt.minute}'
-                  : '${dt.minute}';
               timeDisplay =
-                  '${dt.day} ${activeMonths[dt.month - 1]} ${dt.year}, ${dt.hour}:$minutes';
+                  '${dt.day} ${(englishActive ? monthsEN : monthsID)[dt.month - 1]} ${dt.year}';
             }
 
             return Card(
@@ -150,13 +191,14 @@ class CreatorPostsTab extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    // 🟢 FIX EROR 1 (Baris 189): Menggunakan parameter padding luar & height bawaan Divider yang sah
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4.0),
-                      child: Divider(height: 10, thickness: 0.5),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Divider(
+                        height: 10,
+                        thickness: 0.5,
+                        color: isDarkMode ? Colors.white10 : Colors.black12,
+                      ),
                     ),
-
                     if (contentText.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
@@ -169,17 +211,17 @@ class CreatorPostsTab extends StatelessWidget {
                           ),
                         ),
                       ),
-
-                    // 🟢 FIX EROR 2 (Baris 196): Menggunakan parameter 'height' dan dibatasi lebar Box agar aman
                     if (postImageUrl.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4.0, bottom: 12.0),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4.0,
+                          horizontal: 8.0,
+                        ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
                             postImageUrl,
-                            height:
-                                200, // Mengubah maxHeight menjadi height standar pembatas objek gambarnya
+                            height: 200,
                             width: double.infinity,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
@@ -187,41 +229,81 @@ class CreatorPostsTab extends StatelessWidget {
                           ),
                         ),
                       ),
-
                     const SizedBox(height: 4),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Icon(
-                          Icons.favorite_rounded,
-                          size: 15,
-                          color: likeCount > 0
-                              ? Colors.redAccent
-                              : Colors.grey.shade400,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "$likeCount",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.bold,
+                        // 1. TOMBOL LIKE INTERAKTIF
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () =>
+                              _toggleLikePost(docId, likesArray, currentUid),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                              vertical: 4.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isLikedByMe
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  size: 18,
+                                  color: isLikedByMe
+                                      ? Colors.redAccent
+                                      : Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "${likesArray.length}",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isLikedByMe
+                                        ? Colors.redAccent
+                                        : Colors.grey.shade600,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Icon(
-                          Icons.mode_comment_outlined,
-                          size: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "$commentCount",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+
+                        // 2. TOMBOL KOMENTAR SEKARANG LANGSUNG MEMBUKA COMMENTPAGE ANDA
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => _openCommentSection(
+                            context,
+                            docId,
+                            authorName,
+                            contentText,
+                          ), // 🟢 Oper parameter secara lengkap
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                              vertical: 4.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.mode_comment_outlined,
+                                  size: 16,
+                                  color: Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "$commentCount",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
