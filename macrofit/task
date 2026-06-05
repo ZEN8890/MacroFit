@@ -1,5 +1,1 @@
-tambah bahasa inggris ke setiap page
-cek apakah rumus perhitungan kalori protein dll sudah benar,beri warna pink ke logo cewek di onboarding
-saat onboarding selesai, card nutrisi, target kalori sepertinya masih default, harus diubah dulu program diet nya di profile page
-untuk ai generated resipe, disable saja fitur review nya
-form last name di register buat supaya opsional
+foto public profile page, dan tambahkan fitur apabila resep yang di public profile page diklik ,user bisa dibawa ke resep tersebut. dan tolong perbaiki di bagian postingan nya karena tidak tampil postingan yang pernah ditulis user
