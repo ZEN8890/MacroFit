@@ -16,7 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
-  bool _isPasswordVisible = false;
+  bool _passwordIsVisible = false;
 
   @override
   void dispose() {
@@ -115,20 +115,19 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // 🟢 PASSWORD FIELD DENGAN OBSCURE TOGGLE
                         TextField(
                           controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
+                          obscureText: !_passwordIsVisible,
                           decoration: InputDecoration(
                             labelText: "Password",
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.lock),
                             suffixIcon: IconButton(
                               onPressed: () => setState(
-                                () => _isPasswordVisible = !_isPasswordVisible,
+                                () => _passwordIsVisible = !_passwordIsVisible,
                               ),
                               icon: Icon(
-                                _isPasswordVisible
+                                _passwordIsVisible
                                     ? Icons.visibility
                                     : Icons.visibility_off,
                               ),
@@ -171,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-                // Tombol Bahasa
+                // Tombol Bahasa (Sudah Diperbaiki & Sinkron)
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Padding(
@@ -185,7 +184,8 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () =>
                             isEnglishNotifier.value = !isEnglishNotifier.value,
                         icon: Text(
-                          englishActive ? "🇮🇩" : "🇬🇧",
+                          // 🟢 PERBAIKAN LOGIKA: Jika englishActive true, tampilkan bendera Inggris (🇬🇧). Jika false, tampilkan bendera Indonesia (🇮🇩).
+                          englishActive ? "🇬🇧" : "🇮🇩",
                           style: const TextStyle(fontSize: 24),
                         ),
                       ),
