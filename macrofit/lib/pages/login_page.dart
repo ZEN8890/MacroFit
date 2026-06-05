@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:macrofit/services/auth_services.dart';
 import '../utils/notification_helper.dart';
 import '../utils/global_state.dart';
@@ -48,17 +50,59 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
 
     if (result == "success") {
-      Notify.success(
-        context,
-        isEnglish ? "Login successful!" : "Login berhasil!",
-      );
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
+      try {
+        // 1. Dapatkan UID dari user yang baru saja berhasil login
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // 2. Ambil snapshot datanya dari Cloud Firestore
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          if (userDoc.exists && userDoc.data() != null) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+
+            // 3. Ambil bendera status onboarding (default: false jika akun gres baru daftar)
+            bool hasCompletedOnboarding =
+                userData['has_completed_onboarding'] ?? false;
+
+            if (mounted) setState(() => _isLoading = false);
+
+            Notify.success(
+              context,
+              isEnglish ? "Login successful!" : "Login berhasil!",
+            );
+
+            await Future.delayed(const Duration(milliseconds: 500));
+            if (!mounted) return;
+
+            // 🟢 PERCABANGAN RUTE KRITIS:
+            if (hasCompletedOnboarding) {
+              // User Lama -> langsung lolos ke Home Screen Beranda Utama
+              Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
+            } else {
+              // User Baru Pertama Kali Login -> Dipaksa belok ke halaman Onboarding
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                "/onboarding",
+                (route) => false,
+              );
+            }
+            return;
+          }
+        }
+      } catch (dbError) {
+        debugPrint("Gagal memeriksa status onboarding database: $dbError");
+      }
+
+      // Fallback aman jika pembacaan Firestore gagal, langsung ke Home
+      if (mounted) setState(() => _isLoading = false);
       Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
     } else {
+      if (mounted) setState(() => _isLoading = false);
       Notify.error(
         context,
         result == "Login gagal" && isEnglish
@@ -74,8 +118,7 @@ class _LoginPageState extends State<LoginPage> {
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
         return Scaffold(
-          resizeToAvoidBottomInset:
-              false, // Mencegah UI terangkat oleh keyboard
+          resizeToAvoidBottomInset: false,
           body: SafeArea(
             child: Column(
               children: [
@@ -170,7 +213,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-                // Tombol Bahasa (Sudah Diperbaiki & Sinkron)
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Padding(
@@ -184,7 +226,6 @@ class _LoginPageState extends State<LoginPage> {
                         onPressed: () =>
                             isEnglishNotifier.value = !isEnglishNotifier.value,
                         icon: Text(
-                          // 🟢 PERBAIKAN LOGIKA: Jika englishActive true, tampilkan bendera Inggris (🇬🇧). Jika false, tampilkan bendera Indonesia (🇮🇩).
                           englishActive ? "🇬🇧" : "🇮🇩",
                           style: const TextStyle(fontSize: 24),
                         ),

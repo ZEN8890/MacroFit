@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_services.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -20,6 +21,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
 
+  DateTime? _selectedDateOfBirth;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
@@ -33,6 +35,35 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  Future<void> _selectDateOfBirth(BuildContext context, bool isEnglish) async {
+    final DateTime now = DateTime.now();
+    final DateTime initialCalDate = DateTime(now.year - 18, now.month, now.day);
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateOfBirth ?? initialCalDate,
+      firstDate: DateTime(1940),
+      lastDate: DateTime(now.year - 5),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Theme.of(context).primaryColor,
+              primary: Theme.of(context).primaryColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDateOfBirth) {
+      setState(() {
+        _selectedDateOfBirth = picked;
+      });
+    }
+  }
+
   void handleRegister() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
@@ -41,18 +72,20 @@ class _RegisterPageState extends State<RegisterPage> {
     final String usernameHandle = _usernameController.text
         .trim()
         .toLowerCase()
-        .replaceAll(' ', '');
+        .replaceAll(' ', '')
+        .replaceAll('@', '');
     final bool isEnglish = isEnglishNotifier.value;
 
     if (email.isEmpty ||
         password.isEmpty ||
         firstName.isEmpty ||
-        usernameHandle.isEmpty) {
+        usernameHandle.isEmpty ||
+        _selectedDateOfBirth == null) {
       Notify.error(
         context,
         isEnglish
-            ? "Fields cannot be empty"
-            : "Form tidak boleh ada yang kosong",
+            ? "Fields cannot be empty. Please select your birthdate."
+            : "Form tidak boleh kosong. Silakan pilih tanggal lahir Anda.",
       );
       return;
     }
@@ -84,17 +117,25 @@ class _RegisterPageState extends State<RegisterPage> {
         firstName: firstName,
         lastName: lastName,
         usernameHandle: usernameHandle,
+        dateOfBirth: _selectedDateOfBirth!,
       );
 
       if (result == "success") {
-        if (mounted)
+        // 🟢 FIX BIAR GA LANGSUNG LOGIN: Bersihkan sesi otomatis dari registrasi Firebase
+        await FirebaseAuth.instance.signOut();
+
+        if (mounted) {
           Notify.success(
             context,
-            isEnglish ? "Registration successful!" : "Registrasi berhasil!",
+            isEnglish
+                ? "Registration successful! Please login to continue."
+                : "Registrasi berhasil! Silakan login untuk melanjutkan.",
           );
+        }
 
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
+          // 🟢 BALIKKAN KE LOGIN PAGE SESUAI RENCANA
           Navigator.pushReplacementNamed(context, "/login");
         }
       } else {
@@ -118,10 +159,17 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman Register dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
+        String birthdateText = englishActive
+            ? "Select Date of Birth"
+            : "Pilih Tanggal Lahir";
+        if (_selectedDateOfBirth != null) {
+          birthdateText =
+              "${_selectedDateOfBirth!.day}/${_selectedDateOfBirth!.month}/${_selectedDateOfBirth!.year}";
+        }
+
         return Scaffold(
           appBar: AppBar(
             title: Text(englishActive ? "Registration" : "Pendaftaran"),
@@ -144,11 +192,61 @@ class _RegisterPageState extends State<RegisterPage> {
                     controller: _lastNameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: InputDecoration(
-                      // 🟢 LOGIKA STRUKTUR TEKS PILIHAN OPSIONAL DWI-BAHASA
                       labelText: englishActive
                           ? "Last name (Optional)"
                           : "Nama belakang (Opsional)",
                       border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // 🟢 TANGGAL LAHIR (BENTUK ROUNDED SENADA DENGAN TEXTFIELD LAIN)
+                  InkWell(
+                    onTap: () => _selectDateOfBirth(context, englishActive),
+                    borderRadius: BorderRadius.circular(
+                      12,
+                    ), // 👈 Menjaga efek ripple klik tetap rounded
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white30
+                              : Colors
+                                    .grey
+                                    .shade400, // Menyesuaikan warna border abu form standar
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ), // 👈 FIX UTAMA: Membuat sudut kontainer menjadi tumpul (rounded)
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            birthdateText,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: _selectedDateOfBirth != null
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: _selectedDateOfBirth != null
+                                  ? (Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black87)
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            color: Theme.of(context).primaryColor,
+                            size: 20,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

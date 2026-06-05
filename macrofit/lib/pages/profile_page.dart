@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 import 'about_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -30,26 +30,44 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int _getRemainingDaysToUpdateName(Timestamp? lastUpdate) {
     if (lastUpdate == null) return 0;
-
     final DateTime lastUpdateDateTime = lastUpdate.toDate();
     final DateTime now = DateTime.now();
-
     final int differenceInDays = now.difference(lastUpdateDateTime).inDays;
     final int remainingDays = 14 - differenceInDays;
-
     return remainingDays > 0 ? remainingDays : 0;
   }
 
   int _getRemainingDaysToUpdateUsername(Timestamp? lastUpdate) {
     if (lastUpdate == null) return 0;
-
     final DateTime lastUpdateDateTime = lastUpdate.toDate();
     final DateTime now = DateTime.now();
-
     final int differenceInDays = now.difference(lastUpdateDateTime).inDays;
     final int remainingDays = 14 - differenceInDays;
-
     return remainingDays > 0 ? remainingDays : 0;
+  }
+
+  // 🟢 FUNGSI UTAMA: Menghitung umur secara otomatis berdasarkan Date of Birth dari Firestore
+  int _calculateAgeFromBirthdate(dynamic dobData) {
+    if (dobData == null) return 21; // Default fallback jika data lama kosong
+
+    DateTime birthDate;
+    if (dobData is Timestamp) {
+      birthDate = dobData.toDate();
+    } else if (dobData is String) {
+      birthDate = DateTime.parse(dobData);
+    } else {
+      return 21;
+    }
+
+    DateTime today = DateTime.now();
+    int age = today.year - birthDate.year;
+
+    // Koreksi jika belum melewati bulan atau hari ulang tahun di tahun berjalan
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+    return age;
   }
 
   Future<void> _pickAndUploadImage(BuildContext context) async {
@@ -87,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         Notify.success(
           context,
-          isEnglish
+          isEnglishNotifier.value
               ? 'Profile picture updated!'
               : 'Foto profil berhasil diperbarui!',
         );
@@ -96,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         Notify.error(
           context,
-          isEnglish
+          isEnglishNotifier.value
               ? 'Failed to update photo: $e'
               : 'Gagal memperbarui foto: $e',
         );
@@ -132,7 +150,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         Notify.success(
           context,
-          isEnglish
+          isEnglishNotifier.value
               ? 'Profile picture reset to default.'
               : 'Foto profil dikembalikan ke default.',
         );
@@ -141,7 +159,9 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         Notify.error(
           context,
-          isEnglish ? 'Failed to delete photo: $e' : 'Gagal menghapus foto: $e',
+          isEnglishNotifier.value
+              ? 'Failed to delete photo: $e'
+              : 'Gagal menghapus foto: $e',
         );
       }
     }
@@ -173,7 +193,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 20),
               Text(
-                isEnglish ? 'Logout Confirmation' : 'Konfirmasi Keluar',
+                isEnglishNotifier.value
+                    ? 'Logout Confirmation'
+                    : 'Konfirmasi Keluar',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -181,7 +203,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 12),
               Text(
-                isEnglish
+                isEnglishNotifier.value
                     ? 'Are you sure you want to end your session and log out of MacroFit?'
                     : 'Apakah Anda yakin ingin mengakhiri sesi dan keluar dari aplikasi MacroFit?',
                 textAlign: TextAlign.center,
@@ -205,7 +227,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       onPressed: () => Navigator.pop(context),
                       child: Text(
-                        isEnglish ? 'Cancel' : 'Batal',
+                        isEnglishNotifier.value ? 'Cancel' : 'Batal',
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
@@ -238,7 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         }
                       },
                       child: Text(
-                        isEnglish ? 'Logout' : 'Keluar',
+                        isEnglishNotifier.value ? 'Logout' : 'Keluar',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -273,7 +295,9 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          isEnglish ? 'Edit Account Identity' : 'Ubah Identitas Akun',
+          isEnglishNotifier.value
+              ? 'Edit Account Identity'
+              : 'Ubah Identitas Akun',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: Column(
@@ -285,10 +309,12 @@ class _ProfilePageState extends State<ProfilePage> {
               enabled: remainingNameDays <= 0,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                labelText: isEnglish ? "Full Name" : "Nama Lengkap",
+                labelText: isEnglishNotifier.value
+                    ? "Full Name"
+                    : "Nama Lengkap",
                 prefixIcon: const Icon(Icons.person_outline, size: 20),
                 errorText: remainingNameDays > 0
-                    ? (isEnglish
+                    ? (isEnglishNotifier.value
                           ? 'Wait $remainingNameDays days'
                           : 'Tunggu $remainingNameDays hari lagi')
                     : null,
@@ -300,12 +326,14 @@ class _ProfilePageState extends State<ProfilePage> {
               controller: handleController,
               enabled: remainingUsernameDays <= 0,
               decoration: InputDecoration(
-                labelText: isEnglish ? "Unique Username" : "Username Unik",
+                labelText: isEnglishNotifier.value
+                    ? "Unique Username"
+                    : "Username Unik",
                 prefixText: "@",
                 hintText: "contoh: steven_dev",
                 prefixIcon: const Icon(Icons.alternate_email, size: 20),
                 errorText: remainingUsernameDays > 0
-                    ? (isEnglish
+                    ? (isEnglishNotifier.value
                           ? 'Wait $remainingUsernameDays days'
                           : 'Tunggu $remainingUsernameDays hari lagi')
                     : null,
@@ -318,7 +346,7 @@ class _ProfilePageState extends State<ProfilePage> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              isEnglish ? 'Cancel' : 'Batal',
+              isEnglishNotifier.value ? 'Cancel' : 'Batal',
               style: const TextStyle(color: Colors.grey),
             ),
           ),
@@ -360,7 +388,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (context.mounted) {
                           Notify.error(
                             context,
-                            isEnglish
+                            isEnglishNotifier.value
                                 ? '⚠️ Username already taken!'
                                 : '⚠️ Username telah digunakan oleh akun lain!',
                           );
@@ -383,7 +411,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (context.mounted) Navigator.pop(context);
                   },
             child: Text(
-              isEnglish ? 'Save' : 'Simpan',
+              isEnglishNotifier.value ? 'Save' : 'Simpan',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: (remainingNameDays > 0 && remainingUsernameDays > 0)
@@ -417,13 +445,15 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(width: 8),
             Text(
-              isEnglish ? 'Change Diet Program' : 'Ubah Target Diet',
+              isEnglishNotifier.value
+                  ? 'Change Diet Program'
+                  : 'Ubah Target Diet',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
         ),
         content: Text(
-          isEnglish
+          isEnglishNotifier.value
               ? 'Are you sure you want to change your program focus to "$displayName"?\n\nThis will automatically recalculate your daily calorie target and macro splits.'
               : 'Apakah Anda yakin ingin mengubah fokus program ke "$displayName"?\n\nTindakan ini akan mengkalkulasi ulang seluruh target kalori harian dan batas nutrisi makro (P/K/L) Anda secara otomatis.',
           style: const TextStyle(fontSize: 14, height: 1.4),
@@ -435,7 +465,7 @@ class _ProfilePageState extends State<ProfilePage> {
               setState(() {});
             },
             child: Text(
-              isEnglish ? 'Cancel' : 'Batal',
+              isEnglishNotifier.value ? 'Cancel' : 'Batal',
               style: const TextStyle(color: Colors.grey),
             ),
           ),
@@ -453,7 +483,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _updateDietProgram(newDietCode);
             },
             child: Text(
-              isEnglish ? 'Change Program' : 'Ganti Program',
+              isEnglishNotifier.value ? 'Change Program' : 'Ganti Program',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -470,27 +500,36 @@ class _ProfilePageState extends State<ProfilePage> {
       final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
       final userDoc = await userRef.get();
 
-      if (!userRef.id.isNotEmpty || userDoc.data() == null) return;
+      if (userDoc.data() == null) return;
       final data = userDoc.data() as Map<String, dynamic>;
 
       double weight = (data['weight'] ?? 60.0).toDouble();
       double height = (data['height'] ?? 165.0).toDouble();
-      int age = data['age'] ?? 21;
+
+      // Hitung umur dinamis dari DOB untuk kalkulasi ulang diet program
+      int calculatedAge = _calculateAgeFromBirthdate(data['date_of_birth']);
+
       String gender = data['gender'] ?? 'Laki-laki';
       double activityMultiplier = (data['activity_multiplier'] ?? 1.2)
           .toDouble();
 
       double bmr;
       if (gender == 'Laki-laki' || gender == 'Male') {
-        bmr = 66.5 + (13.75 * weight) + (5.003 * height) - (6.75 * age);
+        bmr =
+            66.5 + (13.75 * weight) + (5.003 * height) - (6.75 * calculatedAge);
       } else {
-        bmr = 655.1 + (9.563 * weight) + (1.85 * height) - (4.676 * age);
+        bmr =
+            655.1 +
+            (9.563 * weight) +
+            (1.85 * height) -
+            (4.676 * calculatedAge);
       }
 
       double baseTdee = bmr * activityMultiplier;
 
       int targetCalories;
       switch (selectedDietCode) {
+        case 'txt_weight_loss':
         case 'Menurunkan Berat Badan':
           targetCalories = (baseTdee - 500).round();
           break;
@@ -514,6 +553,7 @@ class _ProfilePageState extends State<ProfilePage> {
       int targetFats;
 
       switch (selectedDietCode) {
+        case 'txt_weight_loss':
         case 'Menurunkan Berat Badan':
           targetCarbs = ((targetCalories * 0.40) / 4).round();
           targetProteins = ((targetCalories * 0.40) / 4).round();
@@ -549,24 +589,31 @@ class _ProfilePageState extends State<ProfilePage> {
       if (mounted) {
         String displayName = selectedDietCode;
         if (selectedDietCode == 'gain_muscle') {
-          displayName = isEnglish ? 'Gain Muscle' : 'Menaikkan Massa Otot';
+          displayName = isEnglishNotifier.value
+              ? 'Gain Muscle'
+              : 'Menaikkan Massa Otot';
         }
         if (selectedDietCode == 'healthy_lifestyle') {
-          displayName = isEnglish ? 'Healthy Lifestyle' : 'Gaya Hidup Sehat';
+          displayName = isEnglishNotifier.value
+              ? 'Healthy Lifestyle'
+              : 'Gaya Hidup Sehat';
         }
         if (selectedDietCode == 'keto_diet') {
-          displayName = isEnglish ? 'Keto Diet' : 'Diet Keto';
+          displayName = isEnglishNotifier.value ? 'Keto Diet' : 'Diet Keto';
         }
         if (selectedDietCode == 'vegetarian') {
-          displayName = isEnglish ? 'Vegetarian' : 'Vegetarian';
+          displayName = isEnglishNotifier.value ? 'Vegetarian' : 'Vegetarian';
         }
-        if (selectedDietCode == 'Menurunkan Berat Badan') {
-          displayName = isEnglish ? 'Lose Weight' : 'Menurunkan Berat Badan';
+        if (selectedDietCode == 'Menurunkan Berat Badan' ||
+            selectedDietCode == 'txt_weight_loss') {
+          displayName = isEnglishNotifier.value
+              ? 'Lose Weight'
+              : 'Menurunkan Berat Badan';
         }
 
         Notify.success(
           context,
-          isEnglish
+          isEnglishNotifier.value
               ? '⚡ Program switched to $displayName!'
               : '⚡ Program diganti ke $displayName!',
         );
@@ -586,7 +633,9 @@ class _ProfilePageState extends State<ProfilePage> {
       return Scaffold(
         body: Center(
           child: Text(
-            isEnglish ? 'Session not found.' : 'Sesi tidak ditemukan.',
+            isEnglishNotifier.value
+                ? 'Session not found.'
+                : 'Sesi tidak ditemukan.',
           ),
         ),
       );
@@ -595,7 +644,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isEnglish ? 'User Profile' : 'Profil Pengguna',
+          isEnglishNotifier.value ? 'User Profile' : 'Profil Pengguna',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: theme.appBarTheme.backgroundColor,
@@ -622,7 +671,7 @@ class _ProfilePageState extends State<ProfilePage> {
             if (!snapshot.hasData || !snapshot.data!.exists) {
               return Center(
                 child: Text(
-                  isEnglish
+                  isEnglishNotifier.value
                       ? 'Failed to load database.'
                       : 'Gagal memuat database.',
                 ),
@@ -636,6 +685,15 @@ class _ProfilePageState extends State<ProfilePage> {
             String profilePic = userData['profile_picture'] ?? '';
             String bio = userData['bio'] ?? '';
             String currentDiet = userData['diet_code'] ?? 'healthy_lifestyle';
+
+            // Ambil data statistik riil untuk form input 2 kolom (Berat & Tinggi)
+            double currentWeight = (userData['weight'] ?? 60.0).toDouble();
+            double currentHeight = (userData['height'] ?? 165.0).toDouble();
+
+            // 🟢 KALKULASI DINAMIS UMUR: Hitung umur langsung dari tanggal lahir di database
+            int dynamicAge = _calculateAgeFromBirthdate(
+              userData['date_of_birth'],
+            );
 
             Timestamp? lastNameUpdate = userData['last_name_update'];
             Timestamp? lastUsernameUpdate = userData['last_username_update'];
@@ -719,7 +777,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       icon: const Icon(Icons.delete_outline, size: 16),
                       label: Text(
-                        isEnglish
+                        isEnglishNotifier.value
                             ? "Delete Profile Picture"
                             : "Hapus Foto Profil",
                         style: const TextStyle(fontSize: 13),
@@ -775,7 +833,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Text(
-                            isEnglish
+                            isEnglishNotifier.value
                                 ? "*Profile name can be changed again in $remainingNameDays days."
                                 : "*Nama Profil dapat diubah kembali dalam $remainingNameDays hari.",
                             style: TextStyle(
@@ -791,7 +849,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: Text(
-                            isEnglish
+                            isEnglishNotifier.value
                                 ? "*Unique username (@) can be changed again in $remainingUsernameDays days."
                                 : "*Username unik (@) dapat diubah kembali dalam $remainingUsernameDays hari.",
                             style: TextStyle(
@@ -810,7 +868,18 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 🟢 SEKSI TERINTEGRASI: TOMBOL BERALIH BAHASA INDONESIA / INGGRIS (SWITCH)
+                  // 🟢 SEKSI UPDATE REAKTIF: KARTU METRIK 2 KOLOM (BERAT & TINGGI) + UMUR DIREAD-ONLY
+                  InlineHealthMetricsCard(
+                    userId: user.uid,
+                    initialWeight: currentWeight,
+                    initialHeight: currentHeight,
+                    calculatedAge:
+                        dynamicAge, // Lempar umur hasil kalkulasi dinamis DOB
+                    theme: theme,
+                    isDarkMode: themeProvider.isDarkMode,
+                  ),
+                  const SizedBox(height: 16),
+
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -820,42 +889,39 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ListTile(
                       leading: const Icon(Icons.language, color: Colors.blue),
                       title: Text(
-                        isEnglish ? 'Language Settings' : 'Pengaturan Bahasa',
+                        isEnglishNotifier.value
+                            ? 'Language Settings'
+                            : 'Pengaturan Bahasa',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        isEnglish ? 'English (EN)' : 'Bahasa Indonesia (ID)',
+                        isEnglishNotifier.value
+                            ? 'English (EN)'
+                            : 'Bahasa Indonesia (ID)',
                       ),
-                      // 🟢 TOMBOL BENDERA SESUAI DENGAN BAHASA AKTIF
                       trailing: Card(
-                        elevation:
-                            2, // Memberikan sedikit bayangan agar terlihat seperti tombol kartu
+                        elevation: 2,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            8,
-                          ), // Sudut tumpul agar senada dengan UI Anda
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
                           onTap: () {
                             setState(() {
-                              isEnglish = !isEnglish;
-                              isEnglishNotifier.value = isEnglish;
+                              isEnglishNotifier.value =
+                                  !isEnglishNotifier.value;
                             });
-
                             Notify.success(
                               context,
-                              isEnglish
+                              isEnglishNotifier.value
                                   ? 'Language changed to English'
                                   : 'Bahasa berhasil diubah ke Indonesia',
                             );
                           },
                           child: Padding(
-                            padding: const EdgeInsets.all(
-                              8.0,
-                            ), // Padding agar ikon tidak terlalu mepet
+                            padding: const EdgeInsets.all(8.0),
                             child: Text(
-                              isEnglish ? "🇬🇧" : "🇮🇩",
+                              isEnglishNotifier.value ? "🇬🇧" : "🇮🇩",
                               style: const TextStyle(fontSize: 24),
                             ),
                           ),
@@ -863,6 +929,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -875,15 +942,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: Colors.blueGrey,
                       ),
                       title: Text(
-                        isEnglish ? 'About Application' : 'Tentang Aplikasi',
+                        isEnglishNotifier.value
+                            ? 'About Application'
+                            : 'Tentang Aplikasi',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        isEnglish ? 'Version 1.0.0' : 'Versi 1.0.0',
+                        isEnglishNotifier.value
+                            ? 'Version 1.0.0'
+                            : 'Versi 1.0.0',
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // 🟢 NAVIGASI KE ABOUT PAGE
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -893,6 +963,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     ),
                   ),
+
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -909,15 +980,17 @@ class _ProfilePageState extends State<ProfilePage> {
                             : Colors.orange,
                       ),
                       title: Text(
-                        isEnglish ? 'Display Mode' : 'Mode Tampilan',
+                        isEnglishNotifier.value
+                            ? 'Display Mode'
+                            : 'Mode Tampilan',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
                         themeProvider.isDarkMode
-                            ? (isEnglish
+                            ? (isEnglishNotifier.value
                                   ? 'Dark Mode (Lunar)'
                                   : 'Mode Gelap (Lunar)')
-                            : (isEnglish
+                            : (isEnglishNotifier.value
                                   ? 'Light Mode (Solar)'
                                   : 'Mode Terang (Solar)'),
                       ),
@@ -974,7 +1047,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               : Colors.black87,
                         ),
                         decoration: InputDecoration(
-                          labelText: isEnglish
+                          labelText: isEnglishNotifier.value
                               ? 'Diet Program Focus'
                               : 'Fokus Target Program Diet',
                           labelStyle: TextStyle(
@@ -991,22 +1064,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         items: _dietOptions.map((Map<String, String> option) {
                           String translatedName = option['name']!;
-                          if (isEnglish) {
-                            if (option['code'] == 'Menurunkan Berat Badan') {
+                          if (isEnglishNotifier.value) {
+                            if (option['code'] == 'Menurunkan Berat Badan')
                               translatedName = 'Lose Weight';
-                            }
-                            if (option['code'] == 'gain_muscle') {
+                            if (option['code'] == 'gain_muscle')
                               translatedName = 'Gain Muscle';
-                            }
-                            if (option['code'] == 'healthy_lifestyle') {
+                            if (option['code'] == 'healthy_lifestyle')
                               translatedName = 'Healthy Lifestyle';
-                            }
-                            if (option['code'] == 'keto_diet') {
+                            if (option['code'] == 'keto_diet')
                               translatedName = 'Keto Diet';
-                            }
-                            if (option['code'] == 'vegetarian') {
+                            if (option['code'] == 'vegetarian')
                               translatedName = 'Vegetarian';
-                            }
                           }
                           return DropdownMenuItem<String>(
                             value: option['code'],
@@ -1033,12 +1101,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: Colors.blue,
                       ),
                       title: Text(
-                        isEnglish
+                        isEnglishNotifier.value
                             ? 'Account Certification Status'
                             : 'Status Sertifikasi Account',
                       ),
                       subtitle: Text(
-                        isEnglish
+                        isEnglishNotifier.value
                             ? 'Verified by Firebase Authentication'
                             : 'Terverifikasi Firebase Autentikasi',
                       ),
@@ -1052,6 +1120,445 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// ====================================================================
+// 🟢 WIDGET METRIK 2 KOLOM (BERAT & TINGGI) + TEKS READ-ONLY UMUR
+// ====================================================================
+class InlineHealthMetricsCard extends StatefulWidget {
+  final String userId;
+  final double initialWeight;
+  final double initialHeight;
+  final int calculatedAge; // Terima umur otomatis dari DOB induk
+  final ThemeData theme;
+  final bool isDarkMode;
+
+  const InlineHealthMetricsCard({
+    super.key,
+    required this.userId,
+    required this.initialWeight,
+    required this.initialHeight,
+    required this.calculatedAge,
+    required this.theme,
+    required this.isDarkMode,
+  });
+
+  @override
+  State<InlineHealthMetricsCard> createState() =>
+      _InlineHealthMetricsCardState();
+}
+
+class _InlineHealthMetricsCardState extends State<InlineHealthMetricsCard> {
+  late TextEditingController _weightController;
+  late TextEditingController _heightController;
+  bool _isChanged = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _weightController = TextEditingController(
+      text: _formatNum(widget.initialWeight),
+    );
+    _heightController = TextEditingController(
+      text: _formatNum(widget.initialHeight),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant InlineHealthMetricsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.initialWeight != oldWidget.initialWeight ||
+            widget.initialHeight != oldWidget.initialHeight) &&
+        !_isChanged) {
+      _weightController.text = _formatNum(widget.initialWeight);
+      _heightController.text = _formatNum(widget.initialHeight);
+    }
+  }
+
+  String _formatNum(double num) {
+    return num == num.roundToDouble() ? num.round().toString() : num.toString();
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _heightController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfChanged() {
+    final double? w = double.tryParse(_weightController.text.trim());
+    final double? h = double.tryParse(_heightController.text.trim());
+
+    setState(() {
+      _isChanged =
+          (w != null && w != widget.initialWeight) ||
+          (h != null && h != widget.initialHeight);
+    });
+  }
+
+  Future<void> _calculateAndSaveMetrics() async {
+    final double? newWeight = double.tryParse(_weightController.text.trim());
+    final double? newHeight = double.tryParse(_heightController.text.trim());
+    final bool isEn = isEnglishNotifier.value;
+
+    if (newWeight == null ||
+        newWeight <= 0 ||
+        newWeight > 300 ||
+        newHeight == null ||
+        newHeight <= 0 ||
+        newHeight > 250) {
+      Notify.error(
+        context,
+        isEn
+            ? "Please enter valid health metrics"
+            : "Silakan masukkan angka metrik fisik yang valid",
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId);
+      final userDoc = await userRef.get();
+      if (!userDoc.exists || userDoc.data() == null) return;
+
+      final data = userDoc.data() as Map<String, dynamic>;
+
+      String gender = data['gender'] ?? 'Laki-laki';
+      String dietCode = data['diet_code'] ?? 'healthy_lifestyle';
+      double activityMultiplier = (data['activity_multiplier'] ?? 1.2)
+          .toDouble();
+
+      // Gunakan umur dinamis yang dilempar dari widget utama (Hasil kalkulasi riil DOB)
+      int currentAge = widget.calculatedAge;
+
+      // 1. Eksekusi Rumus Dasar BMR (Mifflin-St Jeor) dengan umur otomatis dari DOB
+      double bmr;
+      if (gender == 'Laki-laki' || gender == 'Male') {
+        bmr =
+            66.5 +
+            (13.75 * newWeight) +
+            (5.003 * newHeight) -
+            (6.75 * currentAge);
+      } else {
+        bmr =
+            655.1 +
+            (9.563 * newWeight) +
+            (1.85 * newHeight) -
+            (4.676 * currentAge);
+      }
+
+      // 2. Hitung TDEE Maintenance
+      double baseTdee = bmr * activityMultiplier;
+
+      // 3. Klasifikasi Target Kalori Harian Sesuai Goal Program Diet
+      int targetCalories;
+      switch (dietCode) {
+        case 'Menurunkan Berat Badan':
+        case 'txt_weight_loss':
+          targetCalories = (baseTdee - 500).round();
+          break;
+        case 'gain_muscle':
+          targetCalories = (baseTdee + 400).round();
+          break;
+        case 'keto_diet':
+          targetCalories = (baseTdee - 200).round();
+          break;
+        case 'healthy_lifestyle':
+        case 'vegetarian':
+        default:
+          targetCalories = baseTdee.round();
+          break;
+      }
+
+      if (targetCalories < 1200) targetCalories = 1200;
+
+      // 4. Hitung Ulang Pembagian Makronutrisi Proporsional (P/K/L)
+      int targetCarbs;
+      int targetProteins;
+      int targetFats;
+
+      switch (dietCode) {
+        case 'Menurunkan Berat Badan':
+        case 'txt_weight_loss':
+          targetCarbs = ((targetCalories * 0.40) / 4).round();
+          targetProteins = ((targetCalories * 0.40) / 4).round();
+          targetFats = ((targetCalories * 0.20) / 9).round();
+          break;
+        case 'gain_muscle':
+          targetCarbs = ((targetCalories * 0.50) / 4).round();
+          targetProteins = ((targetCalories * 0.30) / 4).round();
+          targetFats = ((targetCalories * 0.20) / 9).round();
+          break;
+        case 'keto_diet':
+          targetCarbs = ((targetCalories * 0.05) / 4).round();
+          targetProteins = ((targetCalories * 0.25) / 4).round();
+          targetFats = ((targetCalories * 0.70) / 9).round();
+          break;
+        case 'healthy_lifestyle':
+        case 'vegetarian':
+        default:
+          targetCarbs = ((targetCalories * 0.55) / 4).round();
+          targetProteins = ((targetCalories * 0.20) / 4).round();
+          targetFats = ((targetCalories * 0.25) / 9).round();
+          break;
+      }
+
+      // 5. Update data baru secara massal ke Firestore
+      await userRef.update({
+        'weight': newWeight,
+        'height': newHeight,
+        'target_calories': targetCalories,
+        'target_carbs': targetCarbs,
+        'target_proteins': targetProteins,
+        'target_fats': targetFats,
+      });
+
+      setState(() => _isChanged = false);
+
+      if (mounted) {
+        Notify.success(
+          context,
+          isEn
+              ? "⚡ Body stats saved! Targets recalculated to $targetCalories kcal."
+              : "⚡ Statistik fisik disimpan! Kalori dihitung ulang menjadi $targetCalories kkal.",
+        );
+      }
+    } catch (e) {
+      if (mounted) Notify.error(context, "Error: $e");
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEn = isEnglishNotifier.value;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.analytics_outlined,
+                      color: Colors.deepOrange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isEn
+                          ? 'Body Statistics Metrics'
+                          : 'Metrik Statistik Fisik',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_isChanged)
+                  _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: widget.theme.primaryColor,
+                          ),
+                          icon: const Icon(Icons.check, size: 16),
+                          label: Text(
+                            isEn ? 'Save' : 'Simpan',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _calculateAndSaveMetrics,
+                        ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 4),
+
+            // GRID INTERNAL BARU (2 Kolom Input + 1 Info Umur Otomatis)
+            Row(
+              children: [
+                // 1. INPUT BERAT BADAN
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEn ? "Weight" : "Berat",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _weightController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: widget.isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                counterText: "",
+                              ),
+                              maxLength: 5,
+                              onChanged: (_) => _checkIfChanged(),
+                            ),
+                          ),
+                          Text(
+                            "kg",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: widget.theme.primaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // GARIS PEMBATAS VERTIKAL KECIL
+                Container(
+                  height: 30,
+                  width: 1,
+                  color: Colors.black12,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+
+                // 2. INPUT TINGGI BADAN
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEn ? "Height" : "Tinggi",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _heightController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: widget.isDarkMode
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                counterText: "",
+                              ),
+                              maxLength: 5,
+                              onChanged: (_) => _checkIfChanged(),
+                            ),
+                          ),
+                          Text(
+                            "cm",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: widget.theme.primaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // GARIS PEMBATAS VERTIKAL KECIL
+                Container(
+                  height: 30,
+                  width: 1,
+                  color: Colors.black12,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+
+                // 3. INFO UMUR READ-ONLY (DIHITUNG OTOMATIS)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEn ? "Age (Auto)" : "Umur (Otomatis)",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.cake_outlined,
+                            size: 14,
+                            color: widget.theme.primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${widget.calculatedAge} ${isEn ? 'yo' : 'thn'}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: widget.isDarkMode
+                                  ? Colors.white70
+                                  : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -1103,7 +1610,6 @@ class _InlineBioCardState extends State<InlineBioCard> {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1122,7 +1628,9 @@ class _InlineBioCardState extends State<InlineBioCard> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      isEnglish ? 'Bio & Identity' : 'Bio & Identitas Diri',
+                      isEnglishNotifier.value
+                          ? 'Bio & Identity'
+                          : 'Bio & Identitas Diri',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1137,7 +1645,7 @@ class _InlineBioCardState extends State<InlineBioCard> {
                     ),
                     icon: const Icon(Icons.check, size: 16),
                     label: Text(
-                      isEnglish ? 'Save' : 'Simpan',
+                      isEnglishNotifier.value ? 'Save' : 'Simpan',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     onPressed: () async {
@@ -1152,7 +1660,7 @@ class _InlineBioCardState extends State<InlineBioCard> {
                         if (mounted) {
                           Notify.success(
                             context,
-                            isEnglish
+                            isEnglishNotifier.value
                                 ? "Bio updated successfully!"
                                 : "Bio berhasil diperbarui!",
                           );
@@ -1161,7 +1669,7 @@ class _InlineBioCardState extends State<InlineBioCard> {
                         if (mounted) {
                           Notify.error(
                             context,
-                            isEnglish
+                            isEnglishNotifier.value
                                 ? "Failed to update bio: $e"
                                 : "Gagal memperbarui bio: $e",
                           );
@@ -1183,7 +1691,7 @@ class _InlineBioCardState extends State<InlineBioCard> {
                 color: widget.isDarkMode ? Colors.white : Colors.black87,
               ),
               decoration: InputDecoration(
-                hintText: isEnglish
+                hintText: isEnglishNotifier.value
                     ? "Tell us a bit about your diet goals here..."
                     : "Ceritakan sedikit tentang target diet Anda di sini...",
                 border: InputBorder.none,

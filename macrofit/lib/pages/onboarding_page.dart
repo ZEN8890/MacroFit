@@ -253,6 +253,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
         'target_fats': targetFats,
         'water_ml_target': (weight * 33).round(),
         'sugar_gram_target': ((targetCalories * 0.10) / 4).round(),
+
+        // 🟢 FIX UTAMA KUNCI STATUS:
+        // Mengubah flag status menjadi true di Firestore agar pada login berikutnya
+        // akun ini langsung diarahkan masuk ke Dashboard utama (Bypass Onboarding)
+        'has_completed_onboarding': true,
       }, SetOptions(merge: true));
 
       if (!mounted) return;
