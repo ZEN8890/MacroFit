@@ -301,7 +301,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
 
         final bool isAuthor =
             _currentRecipeMap['userId'] == widget.currentUserId;
-        final bool isEditLocked = savedByList.length >= 1;
+        final bool isEditLocked = savedByList.isNotEmpty;
         final bool isAiRecipe = _currentRecipeMap['type'] == 'AI';
 
         String recipeUsername =

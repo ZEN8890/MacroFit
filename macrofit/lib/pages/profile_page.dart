@@ -305,18 +305,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (mounted) {
         String displayName = selectedDietCode;
-        if (selectedDietCode == 'gain_muscle')
+        if (selectedDietCode == 'gain_muscle') {
           displayName = isEnglishNotifier.value
               ? 'Gain Muscle'
               : 'Menaikkan Massa Otot';
-        if (selectedDietCode == 'healthy_lifestyle')
+        }
+        if (selectedDietCode == 'healthy_lifestyle') {
           displayName = isEnglishNotifier.value
               ? 'Healthy Lifestyle'
               : 'Gaya Hidup Sehat';
-        if (selectedDietCode == 'keto_diet')
+        }
+        if (selectedDietCode == 'keto_diet') {
           displayName = isEnglishNotifier.value ? 'Keto Diet' : 'Diet Keto';
-        if (selectedDietCode == 'vegetarian')
+        }
+        if (selectedDietCode == 'vegetarian') {
           displayName = isEnglishNotifier.value ? 'Vegetarian' : 'Vegetarian';
+        }
         if (selectedDietCode == 'Menurunkan Berat Badan' ||
             selectedDietCode == 'txt_weight_loss') {
           displayName = isEnglishNotifier.value
@@ -609,16 +613,21 @@ class _ProfilePageState extends State<ProfilePage> {
                         items: _dietOptions.map((Map<String, String> option) {
                           String translatedName = option['name']!;
                           if (isEnglishNotifier.value) {
-                            if (option['code'] == 'Menurunkan Berat Badan')
+                            if (option['code'] == 'Menurunkan Berat Badan') {
                               translatedName = 'Lose Weight';
-                            if (option['code'] == 'gain_muscle')
+                            }
+                            if (option['code'] == 'gain_muscle') {
                               translatedName = 'Gain Muscle';
-                            if (option['code'] == 'healthy_lifestyle')
+                            }
+                            if (option['code'] == 'healthy_lifestyle') {
                               translatedName = 'Healthy Lifestyle';
-                            if (option['code'] == 'keto_diet')
+                            }
+                            if (option['code'] == 'keto_diet') {
                               translatedName = 'Keto Diet';
-                            if (option['code'] == 'vegetarian')
+                            }
+                            if (option['code'] == 'vegetarian') {
                               translatedName = 'Vegetarian';
+                            }
                           }
                           return DropdownMenuItem<String>(
                             value: option['code'],

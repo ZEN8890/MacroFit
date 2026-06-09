@@ -1,13 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../services/database_services.dart';
-import '../models/user_model.dart';
 import '../widgets/gender_card.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/activity_card.dart';
 import '../widgets/goal_card.dart';
-import '../models/nutrition_model.dart';
-import 'home_page.dart';
 import '../utils/notification_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../navigation_menu.dart';

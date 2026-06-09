@@ -183,11 +183,11 @@ class _CommentPageState extends State<CommentPage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
                     widget.postContent,
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
-                  alignment: Alignment.centerLeft,
                 ),
               ),
               const Divider(height: 1),

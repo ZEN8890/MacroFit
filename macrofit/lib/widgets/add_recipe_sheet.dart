@@ -125,8 +125,9 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
 
   // 🟢 FUNGSI HELPER INTERNAL: Mengubah value database menjadi label bersih sesuai bahasa aktif
   String _getCleanDietLabel(String value, bool isEnglish) {
-    if (value == 'gain_muscle')
+    if (value == 'gain_muscle') {
       return isEnglish ? 'Gain Muscle' : 'Menambah Otot';
+    }
     if (value == 'healthy_lifestyle' ||
         value == 'lose_weight' ||
         value == 'Menurunkan Berat Badan') {
@@ -134,10 +135,12 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
     }
     if (value == 'keto_diet') return isEnglish ? 'Keto Diet' : 'Diet Keto';
     if (value == 'vegetarian') return 'Vegetarian';
-    if (value == 'low_carb')
+    if (value == 'low_carb') {
       return isEnglish ? 'Low Carb' : 'Rendah Karbohidrat';
-    if (value == 'balanced')
+    }
+    if (value == 'balanced') {
       return isEnglish ? 'Balanced Nutrition' : 'Gizi Seimbang';
+    }
     if (value == 'Normal') return 'Normal';
 
     return value.replaceAll('_', ' ');

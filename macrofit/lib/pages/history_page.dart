@@ -42,18 +42,24 @@ class _HistoryPageState extends State<HistoryPage> {
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
         // Pemetaan translasi teks lokal dinamis pada filter chart harian/mingguan/tahunan
-        if (selectedFilter == 'Harian' && englishActive)
+        if (selectedFilter == 'Harian' && englishActive) {
           selectedFilter = 'Daily';
-        if (selectedFilter == 'Daily' && !englishActive)
+        }
+        if (selectedFilter == 'Daily' && !englishActive) {
           selectedFilter = 'Harian';
-        if (selectedFilter == 'Mingguan' && englishActive)
+        }
+        if (selectedFilter == 'Mingguan' && englishActive) {
           selectedFilter = 'Weekly';
-        if (selectedFilter == 'Weekly' && !englishActive)
+        }
+        if (selectedFilter == 'Weekly' && !englishActive) {
           selectedFilter = 'Mingguan';
-        if (selectedFilter == 'Tahunan' && englishActive)
+        }
+        if (selectedFilter == 'Tahunan' && englishActive) {
           selectedFilter = 'Yearly';
-        if (selectedFilter == 'Yearly' && !englishActive)
+        }
+        if (selectedFilter == 'Yearly' && !englishActive) {
           selectedFilter = 'Tahunan';
+        }
 
         return Scaffold(
           appBar: AppBar(

@@ -73,14 +73,18 @@ class RecipeSavedTab extends StatelessWidget {
                 items: ['All', ...dietOptions].map((String value) {
                   String displayLabel = value;
                   if (value == 'All') displayLabel = 'All Categories / Semua';
-                  if (value == 'Menurunkan Berat Badan')
+                  if (value == 'Menurunkan Berat Badan') {
                     displayLabel = 'Menurunkan Berat Badan / Weight Loss';
-                  if (value == 'gain_muscle')
+                  }
+                  if (value == 'gain_muscle') {
                     displayLabel = 'Menaikkan Massa Otot / Gain Muscle';
-                  if (value == 'healthy_lifestyle')
+                  }
+                  if (value == 'healthy_lifestyle') {
                     displayLabel = 'Gaya Hidup Sehat / Healthy Lifestyle';
-                  if (value == 'keto_diet')
+                  }
+                  if (value == 'keto_diet') {
                     displayLabel = 'Diet Keto / Keto Diet';
+                  }
                   if (value == 'vegetarian') displayLabel = 'Vegetarian';
 
                   return DropdownMenuItem<String>(
