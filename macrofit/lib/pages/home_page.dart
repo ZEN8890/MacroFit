@@ -12,7 +12,7 @@ import '../widgets/food_verification_card.dart';
 import 'profile_page.dart';
 import '../widgets/exercise_recommendation_card.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,8 +26,31 @@ class _HomePageState extends State<HomePage>
   Map<String, dynamic>? _tempFoodData;
   bool _isSaving = false;
 
+  // 1. Tambahkan ScrollController
+  final ScrollController _scrollController = ScrollController();
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    // Jangan lupa dispose controller untuk menghindari kebocoran memori
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // 2. Fungsi pembantu untuk scroll otomatis ke bawah
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
 
   void _showAddFoodSheet(BuildContext context) async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -47,6 +70,8 @@ class _HomePageState extends State<HomePage>
       setState(() {
         _tempFoodData = result;
       });
+      // 3. Panggil fungsi scroll setelah card tampil
+      _scrollToBottom();
     }
   }
 
@@ -115,7 +140,6 @@ class _HomePageState extends State<HomePage>
     final colorScheme = Theme.of(context).colorScheme;
     final user = FirebaseAuth.instance.currentUser;
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman Home Dashboard dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -157,8 +181,7 @@ class _HomePageState extends State<HomePage>
             return Scaffold(
               appBar: AppBar(
                 title: Row(
-                  mainAxisSize: MainAxisSize
-                      .min, // Membuat Row hanya memakan ruang yang dibutuhkan
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       "MacroFit",
@@ -167,11 +190,8 @@ class _HomePageState extends State<HomePage>
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8), // Jarak antara teks dan logo
-                    Image.asset(
-                      'assets/Macrofit_logo_only.png',
-                      height: 30, // Sesuaikan tinggi logo
-                    ),
+                    const SizedBox(width: 8),
+                    Image.asset('assets/Macrofit_logo_only.png', height: 30),
                   ],
                 ),
                 actions: [
@@ -205,6 +225,8 @@ class _HomePageState extends State<HomePage>
               ),
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               body: ListView(
+                controller:
+                    _scrollController, // 4. Pasangkan controller di sini
                 padding: const EdgeInsets.all(20),
                 children: [
                   WelcomeHeader(name: userData['first_name'] ?? "User"),
@@ -225,7 +247,6 @@ class _HomePageState extends State<HomePage>
                   WaterTrackerCard(uid: user.uid, userData: userData),
                   const SizedBox(height: 25),
 
-                  // 🟢 DINAMIS MULTI-BAHASA PADA SUB JUDUL SEKSI
                   _buildSectionTitle(
                     englishActive ? "Calorie Target" : "Target Kalori",
                     colorScheme,
@@ -257,7 +278,6 @@ class _HomePageState extends State<HomePage>
               ),
               floatingActionButton: FloatingActionButton.extended(
                 onPressed: () => _showAddFoodSheet(context),
-                // 🟢 DINAMIS MULTI-BAHASA PADA TOMBOL AKSEN UTAMA FLOATING BUTTON
                 label: Text(englishActive ? "Log Food" : "Catat Makan"),
                 icon: const Icon(Icons.auto_awesome),
                 backgroundColor: colorScheme.primary,

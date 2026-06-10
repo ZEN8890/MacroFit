@@ -16,6 +16,7 @@ import 'providers/theme_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // app ini menggunakan flutter_dotenv untuk menyimpan API key secara aman
   try {
     await dotenv.load(fileName: "key.env");
   } catch (e) {
@@ -24,12 +25,14 @@ Future<void> main() async {
 
   try {
     await Firebase.initializeApp(
+      //deteksi otomatis platform dan menggunakan konfigurasi yang sesuai
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
     debugPrint("MacroFit: Firebase Initialization Error: $e");
   }
 
+  //menyembunyikan status bar dan navigation bar untuk pengalaman full-screen
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(
@@ -94,11 +97,11 @@ class AuthWrapper extends StatelessWidget {
                   body: Center(child: CircularProgressIndicator()),
                 );
               }
-
+              //apabila dbsnapshot tidak memiliki data atau dokumen tidak ada, arahkan ke onboarding
               if (!dbSnapshot.hasData || !dbSnapshot.data!.exists) {
                 return const OnboardingPage();
               }
-
+              //deklarasi userData sebagai Map<String, dynamic> untuk mengambil diet_code
               final userData = dbSnapshot.data!.data() as Map<String, dynamic>;
               final dietCode = userData['diet_code'];
 
