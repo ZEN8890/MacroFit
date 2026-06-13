@@ -273,7 +273,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    String full_name = widget.userData['full_name'] ?? 'User MacroFit';
+    String fullName = widget.userData['full_name'] ?? 'User MacroFit';
     String username = widget.userData['username'] ?? 'belum_diatur';
     String profilePic = widget.userData['profile_picture'] ?? '';
     String email = FirebaseAuth.instance.currentUser?.email ?? '';
@@ -361,7 +361,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
           children: [
             const SizedBox(width: 32),
             Text(
-              full_name,
+              fullName,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             IconButton(
@@ -374,7 +374,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
               ),
               onPressed: () => _showEditNameDialog(
                 context,
-                full_name,
+                fullName,
                 lastNameUpdate,
                 username,
                 lastUsernameUpdate,

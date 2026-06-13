@@ -7,6 +7,7 @@ import '../widgets/post_input_section.dart';
 import '../widgets/comment_card.dart';
 import '../utils/notification_helper.dart';
 import '../utils/global_state.dart';
+import 'public_profile_page.dart'; // 🟢 Tambahkan import halaman profil publik jika letaknya satu folder
 
 class CommentPage extends StatefulWidget {
   final String postId;
@@ -48,13 +49,11 @@ class _CommentPageState extends State<CommentPage> {
   }
 
   Future<void> _submitComment() async {
-    //guard clause: jika tidak ada teks dan gambar, jangan kirim
     if (_commentController.text.trim().isEmpty &&
         _selectedCommentImages.isEmpty) {
       return;
     }
     final user = _auth.currentUser;
-    //guard clause: jika user tidak valid, jangan kirim
     if (user == null) return;
 
     setState(() => _isCommentPosting = true);
@@ -251,7 +250,6 @@ class _CommentPageState extends State<CommentPage> {
                           directRepliesMap[rootId] ?? [];
 
                       if (allChainReplies.isNotEmpty) {
-                        // 🟢 INITIAL LIMIT CONFIG: Default awal jika belum diklik, tampilkan 2 balasan teratas
                         if (!_repliesLimitMap.containsKey(rootId)) {
                           _repliesLimitMap[rootId] = 2;
                         }
@@ -268,13 +266,10 @@ class _CommentPageState extends State<CommentPage> {
                           });
                         }
 
-                        // Hitung sisa balasan yang masih tersembunyi
                         final int remainingRepliesCount =
                             allChainReplies.length - displayReplies.length;
 
-                        // 🟢 RENDER LOGIKA TOMBOL DINAMIS (PAGINATION 3 PER 3)
                         if (remainingRepliesCount > 0) {
-                          // Jika masih ada sisa komentar, tampilkan tombol "Lihat balasan" dengan sisa counternya
                           finalDisplayList.add({
                             'type': 'load_more_button',
                             'rootId': rootId,
@@ -284,7 +279,6 @@ class _CommentPageState extends State<CommentPage> {
                         }
 
                         if (displayReplies.length > 2) {
-                          // Jika user sudah terlanjur membuka banyak balasan, munculkan tombol untuk menutup kembali
                           finalDisplayList.add({
                             'type': 'collapse_button',
                             'rootId': rootId,
@@ -315,11 +309,6 @@ class _CommentPageState extends State<CommentPage> {
                           final int remaining = item['remainingCount'];
                           final int currentLimit = item['currentLimit'];
 
-                          // Tentukan angka lompatan counter berikutnya (maksimal 3, atau sisa yang ada)
-                          final int nextStepCount = remaining >= 3
-                              ? 3
-                              : remaining;
-
                           return Padding(
                             padding: const EdgeInsets.only(
                               left: 48.0,
@@ -331,7 +320,6 @@ class _CommentPageState extends State<CommentPage> {
                               child: InkWell(
                                 onTap: () {
                                   setState(() {
-                                    // Tambah limit tampilan sebanyak 3 baris secara bertahap
                                     _repliesLimitMap[rId] = currentLimit + 3;
                                   });
                                 },
@@ -447,6 +435,19 @@ class _CommentPageState extends State<CommentPage> {
                             onUnsend: (id, _) {},
                             onReplyTrigger: (handle) =>
                                 _triggerReply(handle, doc.id, data),
+                            // 🟢 FITUR BARU: Handler ketika foto profil di CommentCard ditekan
+                            onTapAvatar: (commentUid) {
+                              if (commentUid.isNotEmpty) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PublicProfilePage(
+                                      targetUserId: commentUid,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
                           ),
                         );
                       },

@@ -7,7 +7,7 @@ import '../services/storage_services.dart';
 import '../widgets/post_input_section.dart';
 import '../widgets/post_list_stream.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class ForumPage extends StatefulWidget {
   const ForumPage({super.key});
@@ -47,12 +47,12 @@ class _ForumPageState extends State<ForumPage> {
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
 
-      String full_name = 'User MacroFit';
+      String fullName = 'User MacroFit';
       String profilePic = '';
       String username = '';
 
       if (userDoc.exists && userData != null) {
-        full_name =
+        fullName =
             userData['full_name'] ?? userData['displayName'] ?? 'User MacroFit';
         profilePic =
             userData['profile_picture'] ??
@@ -64,7 +64,7 @@ class _ForumPageState extends State<ForumPage> {
 
       await _firestore.collection('posts').add({
         'uid': user.uid,
-        'full_name': full_name,
+        'full_name': fullName,
         'username': username,
         'profile_image': profilePic,
         'content': _postController.text.trim(),
@@ -220,7 +220,6 @@ class _ForumPageState extends State<ForumPage> {
     final currentUser = _auth.currentUser;
     final theme = Theme.of(context);
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman Forum Utama dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {

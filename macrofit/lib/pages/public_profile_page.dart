@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/global_state.dart';
 import '../widgets/creator_header_section.dart';
 import '../widgets/creator_recipes_tab.dart';
-import '../widgets/creator_posts_tab.dart'; // 🟢 UBAH IMPOR: Memanggil komponen PostsTab baru
+import '../widgets/creator_posts_tab.dart';
 
 class PublicProfilePage extends StatelessWidget {
   final String targetUserId;
@@ -73,7 +73,6 @@ class PublicProfilePage extends StatelessWidget {
                                 icon: const Icon(Icons.restaurant, size: 18),
                                 text: englishActive ? "Recipes" : "Resep",
                               ),
-                              // 🟢 FIX TAB UTAMA: Mengubah Balasan menjadi Postingan Sosial
                               Tab(
                                 icon: const Icon(
                                   Icons.dynamic_feed_rounded,
@@ -93,7 +92,6 @@ class PublicProfilePage extends StatelessWidget {
                         targetUserId: targetUserId,
                         englishActive: englishActive,
                       ),
-                      // 🟢 FIX KONTEN TAB: Memanggil widget list postingan buatan kreator
                       CreatorPostsTab(
                         targetUserId: targetUserId,
                         englishActive: englishActive,

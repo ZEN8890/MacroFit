@@ -35,7 +35,6 @@ class CreatorPostsTab extends StatelessWidget {
     }
   }
 
-  // 🟢 FIX UTAMA: Mengalihkan Lembar BottomSheet lama langsung ke CommentPage Asli Anda
   void _openCommentSection(
     BuildContext context,
     String postId,

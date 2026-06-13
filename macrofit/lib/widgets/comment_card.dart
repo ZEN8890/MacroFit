@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'reply_text_highlighter.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class CommentCard extends StatelessWidget {
   final String commentId;
@@ -14,6 +14,7 @@ class CommentCard extends StatelessWidget {
   final Function(String) onReplyTrigger;
   final bool isRepliesHidden;
   final VoidCallback onToggleHideReplies;
+  final void Function(String uid)? onTapAvatar;
 
   const CommentCard({
     super.key,
@@ -28,9 +29,9 @@ class CommentCard extends StatelessWidget {
     required this.onReplyTrigger,
     required this.isRepliesHidden,
     required this.onToggleHideReplies,
+    this.onTapAvatar,
   });
 
-  // Fungsi untuk memotong teks preview
   String _getPreview(String text) {
     if (text.length <= 20) return text;
     return "${text.substring(0, 20)}...";
@@ -47,11 +48,9 @@ class CommentCard extends StatelessWidget {
     final String displayName =
         '@${(commentData['username'] ?? 'user').toLowerCase()}';
 
-    // Data balasan
     final String parentUsername = commentData['parent_username'] ?? '';
     final String parentContent = commentData['parent_content'] ?? '';
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus visual kartu ulasan dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -60,23 +59,30 @@ class CommentCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Menampilkan Foto Profil
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: theme.primaryColor.withOpacity(0.15),
-                backgroundImage: profileImageUrl.isNotEmpty
-                    ? NetworkImage(profileImageUrl)
-                    : null,
-                child: profileImageUrl.isEmpty
-                    ? const Icon(Icons.person, size: 16)
-                    : null,
+              GestureDetector(
+                onTap: () {
+                  final String commentUid = commentData['uid'] ?? '';
+                  onTapAvatar?.call(commentUid);
+                },
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: theme.primaryColor.withOpacity(0.15),
+                    backgroundImage: profileImageUrl.isNotEmpty
+                        ? NetworkImage(profileImageUrl)
+                        : null,
+                    child: profileImageUrl.isEmpty
+                        ? const Icon(Icons.person, size: 16)
+                        : null,
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Visual Membalas ke @User: "..." (Dinamis Dwi-Bahasa)
                     if (parentUsername.isNotEmpty)
                       Container(
                         margin: const EdgeInsets.only(bottom: 4),

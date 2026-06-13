@@ -386,7 +386,7 @@ class _RecipePageState extends State<RecipePage> {
                   .collection('users')
                   .doc(currentUserId)
                   .get();
-              String full_name = uDoc.data()?['full_name'] ?? 'User';
+              String fullName = uDoc.data()?['full_name'] ?? 'User';
               List<String> uploadedUrls = [];
 
               try {
@@ -412,7 +412,7 @@ class _RecipePageState extends State<RecipePage> {
                       ? uploadedUrls.first
                       : null,
                   'image_urls': uploadedUrls,
-                  'full_name': full_name,
+                  'full_name': fullName,
                   'username': uDoc.data()?['username'] ?? '',
                   'type': 'Community',
                   'userId': currentUserId,
