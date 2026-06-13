@@ -69,7 +69,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final String password = _passwordController.text.trim();
     final String firstName = _firstNameController.text.trim();
     final String lastName = _lastNameController.text.trim();
-    final String usernameHandle = _usernameController.text
+    final String username = _usernameController.text
         .trim()
         .toLowerCase()
         .replaceAll(' ', '')
@@ -79,7 +79,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (email.isEmpty ||
         password.isEmpty ||
         firstName.isEmpty ||
-        usernameHandle.isEmpty ||
+        username.isEmpty ||
         _selectedDateOfBirth == null) {
       Notify.error(
         context,
@@ -95,7 +95,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final usernameQuery = await FirebaseFirestore.instance
           .collection('users')
-          .where('username_handle', isEqualTo: usernameHandle)
+          .where('username', isEqualTo: username)
           .get();
 
       if (usernameQuery.docs.isNotEmpty) {
@@ -116,7 +116,7 @@ class _RegisterPageState extends State<RegisterPage> {
         password: password,
         firstName: firstName,
         lastName: lastName,
-        usernameHandle: usernameHandle,
+        username: username,
         dateOfBirth: _selectedDateOfBirth!,
       );
 
@@ -199,7 +199,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // 🟢 TANGGAL LAHIR (BENTUK ROUNDED SENADA DENGAN TEXTFIELD LAIN)
                   InkWell(
                     onTap: () => _selectDateOfBirth(context, englishActive),
                     borderRadius: BorderRadius.circular(
@@ -218,9 +217,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     .grey
                                     .shade400, // Menyesuaikan warna border abu form standar
                         ),
-                        borderRadius: BorderRadius.circular(
-                          12,
-                        ), // 👈 FIX UTAMA: Membuat sudut kontainer menjadi tumpul (rounded)
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -16,13 +16,11 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
-  // --- HELPER SNACKBAR ---
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
     Notify.error(context, message);
   }
 
-  // --- PROSES HASIL AI (Hanya Kirim Balik ke Home) ---
   Future<void> _handleResult(Map<String, dynamic> result) async {
     final bool currentLangEn = isEnglishNotifier.value;
 

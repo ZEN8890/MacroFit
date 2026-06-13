@@ -7,7 +7,7 @@ import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
 
 class PostCard extends StatelessWidget {
   final String postId;
-  final String username;
+  final String full_name;
   final String content;
   final List<dynamic>? imageUrls;
   final String? profileImage;
@@ -19,12 +19,12 @@ class PostCard extends StatelessWidget {
   final bool isOwner;
   final VoidCallback onDelete;
   final VoidCallback onLikeToggle;
-  final String usernameHandle;
+  final String username;
 
   const PostCard({
     super.key,
     required this.postId,
-    required this.username,
+    required this.full_name,
     required this.content,
     required this.imageUrls,
     this.profileImage,
@@ -36,7 +36,7 @@ class PostCard extends StatelessWidget {
     required this.isOwner,
     required this.onDelete,
     required this.onLikeToggle,
-    required this.usernameHandle,
+    required this.username,
   });
 
   String _formatTimestamp(Timestamp? timestamp, bool isEnglish) {
@@ -117,9 +117,9 @@ class PostCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            usernameHandle.isNotEmpty
-                                ? '@${usernameHandle.toLowerCase()}'
-                                : username,
+                            username.isNotEmpty
+                                ? '@${username.toLowerCase()}'
+                                : full_name,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,

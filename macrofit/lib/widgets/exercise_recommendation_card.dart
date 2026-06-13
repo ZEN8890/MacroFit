@@ -34,7 +34,6 @@ class ExerciseRecommendationCard extends StatelessWidget {
             key: const Key('detailed_exercise_bottom_sheet'),
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Batang Kecil Top Handle BottomSheet
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 width: 40,

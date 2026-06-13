@@ -81,7 +81,6 @@ class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Handle bar seretan atas
                 Center(
                   child: Container(
                     width: 40,

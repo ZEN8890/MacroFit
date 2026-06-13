@@ -3,7 +3,7 @@ class UserModel {
   final String firstName;
   final String lastName;
   final String email;
-  final String? usernameHandle; // Tambahkan field ini
+  final String? username;
 
   int dailyCalorieTarget;
   double? weight;
@@ -18,7 +18,7 @@ class UserModel {
     required this.firstName,
     required this.lastName,
     required this.email,
-    this.usernameHandle,
+    this.username,
     this.dailyCalorieTarget = 0,
     this.weight,
     this.height,
@@ -29,8 +29,8 @@ class UserModel {
   });
 
   // Helper untuk mendapatkan display name yang rapi
-  String get displayName => usernameHandle != null && usernameHandle!.isNotEmpty
-      ? '@${usernameHandle!.toLowerCase()}'
+  String get displayName => username != null && username!.isNotEmpty
+      ? '@${username!.toLowerCase()}'
       : '@${firstName.toLowerCase()}${lastName.toLowerCase()}';
 
   Map<String, dynamic> toMap() {
@@ -39,7 +39,7 @@ class UserModel {
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
-      'username_handle': usernameHandle,
+      'username': username,
       'daily_calorie_target': dailyCalorieTarget,
       'weight': weight,
       'height': height,
@@ -56,7 +56,7 @@ class UserModel {
       firstName: map['first_name'] ?? '',
       lastName: map['last_name'] ?? '',
       email: map['email'] ?? '',
-      usernameHandle: map['username_handle'],
+      username: map['username'],
       dailyCalorieTarget: map['daily_calorie_target'] ?? 0,
       weight: (map['weight'] as num?)?.toDouble(),
       height: (map['height'] as num?)?.toDouble(),

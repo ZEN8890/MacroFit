@@ -224,7 +224,7 @@ class _RecipePageState extends State<RecipePage> {
               'calories': recipe['calories'] ?? 0,
               'image_url': null,
               'image_keyword': recipe['image_keyword'] ?? 'healthy_food',
-              'username': 'MacroFit AI',
+              'full_name': 'MacroFit AI',
               'type': 'AI',
               'ingredients': recipe['ingredients'] ?? [],
               'instructions': recipe['instructions'] ?? [],
@@ -386,7 +386,7 @@ class _RecipePageState extends State<RecipePage> {
                   .collection('users')
                   .doc(currentUserId)
                   .get();
-              String username = uDoc.data()?['username'] ?? 'User';
+              String full_name = uDoc.data()?['full_name'] ?? 'User';
               List<String> uploadedUrls = [];
 
               try {
@@ -412,8 +412,8 @@ class _RecipePageState extends State<RecipePage> {
                       ? uploadedUrls.first
                       : null,
                   'image_urls': uploadedUrls,
-                  'username': username,
-                  'username_handle': uDoc.data()?['username_handle'] ?? '',
+                  'full_name': full_name,
+                  'username': uDoc.data()?['username'] ?? '',
                   'type': 'Community',
                   'userId': currentUserId,
                   'ingredients': ingredients,
@@ -491,7 +491,7 @@ class _RecipePageState extends State<RecipePage> {
           'title': recipeData['title'],
           'calories': recipeData['calories'],
           'image_url': recipeData['image_url'],
-          'username': recipeData['username'],
+          'full_name': recipeData['full_name'],
           'type': 'Favorites',
           'origin_type': 'AI',
           'userId': currentUserId,

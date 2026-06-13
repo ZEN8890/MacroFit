@@ -45,7 +45,7 @@ class CommentCard extends StatelessWidget {
     final String content = commentData['content'] ?? '';
     final String profileImageUrl = commentData['profile_image'] ?? '';
     final String displayName =
-        '@${(commentData['username_handle'] ?? 'user').toLowerCase()}';
+        '@${(commentData['username'] ?? 'user').toLowerCase()}';
 
     // Data balasan
     final String parentUsername = commentData['parent_username'] ?? '';

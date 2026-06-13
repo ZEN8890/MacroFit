@@ -75,10 +75,10 @@ class PostListStream extends StatelessWidget {
                           : []);
 
                 final String postUid = data['uid'] ?? '';
-                final String rawHandle =
-                    data['username_handle']?.toString().trim() ?? '';
+                final String username =
+                    data['username']?.toString().trim() ?? '';
                 final String fullName =
-                    data['username']?.toString().trim() ?? 'User MacroFit';
+                    data['full_name']?.toString().trim() ?? 'User MacroFit';
 
                 return PostCard(
                   postId: doc.id,
@@ -95,8 +95,8 @@ class PostListStream extends StatelessWidget {
                   isOwner: postUid == auth.currentUser?.uid,
                   onDelete: () => onDeletePost(doc.id, data['image_url']),
                   onLikeToggle: () => onLikeToggle(doc.id, data['likes'] ?? []),
-                  username: fullName,
-                  usernameHandle: rawHandle,
+                  full_name: fullName,
+                  username: username,
                 );
               },
             );

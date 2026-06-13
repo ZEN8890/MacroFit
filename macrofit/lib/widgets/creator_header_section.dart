@@ -15,8 +15,8 @@ class CreatorHeaderSection extends StatelessWidget {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    String displayName = userData['username'] ?? 'User MacroFit';
-    String handleName = userData['username_handle'] ?? 'user_macrofit';
+    String displayName = userData['full_name'] ?? 'User MacroFit';
+    String username = userData['username'] ?? 'user_macrofit';
     String profilePic = userData['profile_picture'] ?? '';
     String bioText = userData['bio'] ?? '';
     String dietCode = userData['diet_code'] ?? 'healthy_lifestyle';
@@ -78,7 +78,7 @@ class CreatorHeaderSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '@$handleName',
+                      '@$username',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

@@ -13,9 +13,9 @@ class AuthService {
     required String password,
     required String firstName,
     required String lastName,
-    required String usernameHandle,
+    required String username,
     required DateTime
-    dateOfBirth, // 🟢 PARAMETER BARU: Menerima input tanggal lahir dari RegisterPage
+    dateOfBirth, // Menerima input tanggal lahir dari RegisterPage
   }) async {
     final bool isEnglish = isEnglishNotifier.value;
     try {
@@ -33,23 +33,23 @@ class AuthService {
           email: email,
         );
 
+        //proses perubahan data user model ke dalam bentuk map untuk disimpan ke firestore
         Map<String, dynamic> userDataMap = newUser.toMap();
 
-        // Menyimpan handle yang unik (tanpa spasi, lowercase)
-        userDataMap['username_handle'] = usernameHandle;
+        // Menyimpan username
+        userDataMap['username'] = username;
 
-        // Menyimpan Nama Lengkap (DisplayName) secara rapi
-        userDataMap['username'] = "$firstName $lastName".trim();
+        // Menyimpan Nama Lengkap
+        userDataMap['full_name'] = "$firstName $lastName".trim();
 
-        // 🟢 SINKRONISASI DATABASE: Menyimpan data Date of Birth ke dokumen Firestore
+        // Menyimpan data Date of Birth ke dokumen Firestore
         userDataMap['date_of_birth'] = dateOfBirth;
 
-        // 🟢 SAKELAR STATUS BARU (FIX ONBOARDING MELOMPAT):
         // Menandai secara default bahwa akun baru ini BELUM menyelesaikan tahap onboarding.
         // Data ini dibaca oleh router utama untuk membelokkan user baru ke Onboarding Page.
         userDataMap['has_completed_onboarding'] = false;
 
-        // 🟢 PRESET DEFAULT METRIK KLINIS: Mengunci struktur agar saat awal akun dibuat tidak kosong (null)
+        //Mengunci struktur agar saat awal akun dibuat tidak kosong (null)
         userDataMap['weight'] = 65.0; // Default awal 65kg
         userDataMap['height'] = 170.0; // Default awal 170cm
         userDataMap['gender'] = 'Laki-laki'; // Default gender awal
@@ -77,7 +77,7 @@ class AuthService {
     return isEnglish ? "An error occurred" : "Terjadi kesalahan";
   }
 
-  Future<String> updateUsernameHandle({
+  Future<String> updateusername({
     required String currentUid,
     required String newUsername,
   }) async {
@@ -105,7 +105,7 @@ class AuthService {
 
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
 
-      if (userData['username_handle'] == cleanUsername) return "success";
+      if (userData['username'] == cleanUsername) return "success";
 
       // Cek limit 14 hari
       Timestamp? lastUpdate = userData['last_username_update'] as Timestamp?;
@@ -123,7 +123,7 @@ class AuthService {
       // Cek keunikan
       final usernameQuery = await _firestore
           .collection('users')
-          .where('username_handle', isEqualTo: cleanUsername)
+          .where('username', isEqualTo: cleanUsername)
           .get();
 
       if (usernameQuery.docs.isNotEmpty) {
@@ -133,7 +133,7 @@ class AuthService {
       }
 
       await _firestore.collection('users').doc(currentUid).update({
-        'username_handle': cleanUsername,
+        'username': cleanUsername,
         'last_username_update': FieldValue.serverTimestamp(),
       });
 

@@ -47,25 +47,25 @@ class _ForumPageState extends State<ForumPage> {
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       final userData = userDoc.data();
 
-      String username = 'User MacroFit';
+      String full_name = 'User MacroFit';
       String profilePic = '';
-      String handle = '';
+      String username = '';
 
       if (userDoc.exists && userData != null) {
-        username =
-            userData['username'] ?? userData['displayName'] ?? 'User MacroFit';
+        full_name =
+            userData['full_name'] ?? userData['displayName'] ?? 'User MacroFit';
         profilePic =
             userData['profile_picture'] ??
             userData['profile_image_url'] ??
             userData['photoUrl'] ??
             '';
-        handle = userData['username_handle'] ?? '';
+        username = userData['username'] ?? '';
       }
 
       await _firestore.collection('posts').add({
         'uid': user.uid,
+        'full_name': full_name,
         'username': username,
-        'username_handle': handle,
         'profile_image': profilePic,
         'content': _postController.text.trim(),
         'image_urls': imageUrls,

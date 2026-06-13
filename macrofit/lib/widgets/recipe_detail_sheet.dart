@@ -125,8 +125,8 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
       await _firestore.collection('recipe_comments').add({
         'recipeId': widget.docId,
         'userId': widget.currentUserId,
-        'username': userData['username'] ?? 'User',
-        'username_handle': userData['username_handle'] ?? 'user',
+        'full_name': userData['full_name'] ?? 'User',
+        'username': userData['username'] ?? 'user',
         'userProfilePic': userData['profile_picture'] ?? '',
         'commentText': text,
         'rating': _selectedRating,
@@ -305,10 +305,10 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
         final bool isAiRecipe = _currentRecipeMap['type'] == 'AI';
 
         String recipeUsername =
-            _currentRecipeMap['username_handle'] != null &&
-                _currentRecipeMap['username_handle'].toString().isNotEmpty
-            ? _currentRecipeMap['username_handle']
-            : (_currentRecipeMap['username'] ?? 'anonim');
+            _currentRecipeMap['username'] != null &&
+                _currentRecipeMap['username'].toString().isNotEmpty
+            ? _currentRecipeMap['username']
+            : (_currentRecipeMap['full_name'] ?? 'anonim');
 
         return DraggableScrollableSheet(
           initialChildSize: 0.7,
@@ -796,7 +796,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                                                           commenterId,
                                                                         ),
                                                                     child: Text(
-                                                                      '@${d['username_handle'] ?? 'user'}',
+                                                                      '@${d['username'] ?? 'user'}',
                                                                       style: TextStyle(
                                                                         fontWeight:
                                                                             FontWeight.bold,

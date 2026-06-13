@@ -38,8 +38,6 @@ class _CommentPageState extends State<CommentPage> {
   String? _replyToParentId;
   Map<String, dynamic>? _replyingToCommentData;
 
-  // 🟢 PERBAIKAN STATE: Mengubah dari Map<String, bool> menjadi Map<String, int>
-  // untuk melacak jumlah limit balasan yang diizinkan tampil per Komentar Utama
   final Map<String, int> _repliesLimitMap = {};
 
   @override
@@ -50,11 +48,13 @@ class _CommentPageState extends State<CommentPage> {
   }
 
   Future<void> _submitComment() async {
+    //guard clause: jika tidak ada teks dan gambar, jangan kirim
     if (_commentController.text.trim().isEmpty &&
         _selectedCommentImages.isEmpty) {
       return;
     }
     final user = _auth.currentUser;
+    //guard clause: jika user tidak valid, jangan kirim
     if (user == null) return;
 
     setState(() => _isCommentPosting = true);
@@ -102,8 +102,8 @@ class _CommentPageState extends State<CommentPage> {
               'parent_username': _replyingToCommentData?['username'] ?? '',
               'parent_content': _replyingToCommentData?['content'] ?? '',
               'postId_reference': widget.postId,
-              'username': userData?['username'] ?? 'User',
-              'username_handle': userData?['username_handle'] ?? '',
+              'full_name': userData?['full_name'] ?? 'User',
+              'username': userData?['username'] ?? '',
               'profile_image': userData?['profile_picture'] ?? '',
               'content': _commentController.text.trim(),
               'image_urls': uploadedImageUrls,
@@ -310,7 +310,6 @@ class _CommentPageState extends State<CommentPage> {
                       itemBuilder: (_, index) {
                         final item = finalDisplayList[index];
 
-                        // 🟢 1. HANDLER TOMBOL "LIHAT BALASAN (+3)"
                         if (item['type'] == 'load_more_button') {
                           final String rId = item['rootId'];
                           final int remaining = item['remainingCount'];
@@ -369,7 +368,6 @@ class _CommentPageState extends State<CommentPage> {
                           );
                         }
 
-                        // 🟢 2. HANDLER TOMBOL "SEMBUNYIKAN BALASAN"
                         if (item['type'] == 'collapse_button') {
                           final String rId = item['rootId'];
                           return Padding(
@@ -383,7 +381,6 @@ class _CommentPageState extends State<CommentPage> {
                               child: InkWell(
                                 onTap: () {
                                   setState(() {
-                                    // Kembalikan limit ke ukuran semula (2 baris)
                                     _repliesLimitMap[rId] = 2;
                                   });
                                 },
@@ -420,7 +417,6 @@ class _CommentPageState extends State<CommentPage> {
                           );
                         }
 
-                        // 3. RENDER KARTU KOMENTAR ASLI (PARENT & REPLIES)
                         final doc = item['doc'] as QueryDocumentSnapshot;
                         final data = doc.data() as Map<String, dynamic>;
                         final bool isReply = item['type'] == 'reply';

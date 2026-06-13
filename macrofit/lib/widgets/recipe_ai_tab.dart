@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 🟢 FIX EROR 1: Mengimpor Firestore agar dikenal oleh compiler
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'recipe_stream_view.dart';
 import '../utils/global_state.dart';
 
@@ -11,7 +11,6 @@ class RecipeAITab extends StatelessWidget {
   final VoidCallback onGeneratePressed;
   final Function(Map<String, dynamic>, String) onTapCard;
 
-  // 🟢 FIX EROR 2: Mengubah dari tipe 'Function' menjadi tipe data Future asinkron yang presisi
   final Future<void> Function(String, List<dynamic>) onToggleFavorite;
 
   const RecipeAITab({

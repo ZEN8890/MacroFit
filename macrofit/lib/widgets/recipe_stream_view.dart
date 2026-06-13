@@ -383,9 +383,10 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                                   }
 
                                   final String recipeHandle =
-                                      recipeData['username_handle'] ?? '';
+                                      recipeData['username'] ?? '';
                                   final String recipeAuthorName =
-                                      recipeData['username'] ?? 'User MacroFit';
+                                      recipeData['full_name'] ??
+                                      'User MacroFit';
 
                                   String authorHandle;
                                   if (displayType == 'AI') {

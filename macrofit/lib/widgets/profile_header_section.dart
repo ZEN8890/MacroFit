@@ -125,11 +125,11 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
     BuildContext context,
     String currentName,
     Timestamp? lastNameUpdate,
-    String currentHandle,
+    String currentusername,
     Timestamp? lastUsernameUpdate,
   ) {
     final nameController = TextEditingController(text: currentName);
-    final handleController = TextEditingController(text: currentHandle);
+    final usernameController = TextEditingController(text: currentusername);
     final theme = Theme.of(context);
 
     final int remainingNameDays = _getRemainingDaysToUpdateName(lastNameUpdate);
@@ -170,7 +170,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: handleController,
+              controller: usernameController,
               enabled: remainingUsernameDays <= 0,
               decoration: InputDecoration(
                 labelText: isEnglishNotifier.value
@@ -202,25 +202,25 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                 ? null
                 : () async {
                     String newName = nameController.text.trim();
-                    String newHandle = handleController.text
+                    String newusername = usernameController.text
                         .trim()
                         .toLowerCase()
                         .replaceAll(' ', '');
 
-                    if (newName.isEmpty || newHandle.isEmpty) return;
+                    if (newName.isEmpty || newusername.isEmpty) return;
                     final Map<String, dynamic> updatePayload = {};
 
                     if (newName != currentName && remainingNameDays <= 0) {
-                      updatePayload['username'] = newName;
+                      updatePayload['full_name'] = newName;
                       updatePayload['last_name_update'] =
                           FieldValue.serverTimestamp();
                     }
 
-                    if (newHandle != currentHandle &&
+                    if (newusername != currentusername &&
                         remainingUsernameDays <= 0) {
                       final checkDuplication = await FirebaseFirestore.instance
                           .collection('users')
-                          .where('username_handle', isEqualTo: newHandle)
+                          .where('username', isEqualTo: newusername)
                           .get();
 
                       bool isTakenByOthers = false;
@@ -241,7 +241,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                         }
                         return;
                       }
-                      updatePayload['username_handle'] = newHandle;
+                      updatePayload['username'] = newusername;
                       updatePayload['last_username_update'] =
                           FieldValue.serverTimestamp();
                     }
@@ -273,9 +273,8 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    String username = widget.userData['username'] ?? 'User MacroFit';
-    String usernameHandle =
-        widget.userData['username_handle'] ?? 'belum_diatur';
+    String full_name = widget.userData['full_name'] ?? 'User MacroFit';
+    String username = widget.userData['username'] ?? 'belum_diatur';
     String profilePic = widget.userData['profile_picture'] ?? '';
     String email = FirebaseAuth.instance.currentUser?.email ?? '';
 
@@ -362,7 +361,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
           children: [
             const SizedBox(width: 32),
             Text(
-              username,
+              full_name,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             IconButton(
@@ -375,16 +374,16 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
               ),
               onPressed: () => _showEditNameDialog(
                 context,
-                username,
+                full_name,
                 lastNameUpdate,
-                usernameHandle,
+                username,
                 lastUsernameUpdate,
               ),
             ),
           ],
         ),
         Text(
-          '@$usernameHandle',
+          '@$username',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,

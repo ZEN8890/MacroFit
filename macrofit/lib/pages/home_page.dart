@@ -26,7 +26,6 @@ class _HomePageState extends State<HomePage>
   Map<String, dynamic>? _tempFoodData;
   bool _isSaving = false;
 
-  // 1. Tambahkan ScrollController
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -34,7 +33,6 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    // Jangan lupa dispose controller untuk menghindari kebocoran memori
     _scrollController.dispose();
     super.dispose();
   }
@@ -49,6 +47,21 @@ class _HomePageState extends State<HomePage>
           curve: Curves.easeOut,
         );
       });
+    }
+  }
+
+  void _directSaveFood(Map<String, dynamic> data) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await DatabaseService().saveFoodLog(user.uid, data);
+
+      if (!mounted) return;
+      Notify.success(
+        context,
+        isEnglishNotifier.value
+            ? "Successfully added!"
+            : "Berhasil ditambahkan!",
+      );
     }
   }
 
@@ -72,21 +85,6 @@ class _HomePageState extends State<HomePage>
       });
       // 3. Panggil fungsi scroll setelah card tampil
       _scrollToBottom();
-    }
-  }
-
-  void _directSaveFood(Map<String, dynamic> data) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await DatabaseService().saveFoodLog(user.uid, data);
-
-      if (!mounted) return;
-      Notify.success(
-        context,
-        isEnglishNotifier.value
-            ? "Successfully added!"
-            : "Berhasil ditambahkan!",
-      );
     }
   }
 
