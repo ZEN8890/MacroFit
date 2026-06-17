@@ -7,10 +7,13 @@ import '../widgets/goal_card.dart';
 import '../utils/notification_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../navigation_menu.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
+
+  // 🟢 PERBAIKAN DI SINI: Letakkan variabel static di dalam class utama (bukan di dalam State)
+  static bool cameFromLoginButton = false;
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
@@ -19,7 +22,7 @@ class OnboardingPage extends StatefulWidget {
 class ActivityOption {
   final String title;
   final String description;
-  final String descriptionEn; // 🟢 Tambahan translasi deskripsi aktivitas
+  final String descriptionEn;
   final double value;
 
   ActivityOption({
@@ -59,9 +62,9 @@ final List<ActivityOption> activities = [
 
 class GoalOption {
   final String title;
-  final String titleEn; // 🟢 Tambahan translasi judul target
+  final String titleEn;
   final String subtitle;
-  final String subtitleEn; // 🟢 Tambahan translasi sub-judul target
+  final String subtitleEn;
   final IconData icon;
   final String code;
 
@@ -129,6 +132,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final TextEditingController _heightController = TextEditingController();
   String? _selectedGender;
   String? _selectedDietCode;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Pengecekan aman menggunakan nama kelas OnboardingPage
+      if (!OnboardingPage.cameFromLoginButton) {
+        if (FirebaseAuth.instance.currentUser != null) {
+          await FirebaseAuth.instance.signOut();
+        }
+      }
+      OnboardingPage.cameFromLoginButton = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -249,10 +267,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         'target_fats': targetFats,
         'water_ml_target': (weight * 33).round(),
         'sugar_gram_target': ((targetCalories * 0.10) / 4).round(),
-
-        // 🟢 FIX UTAMA KUNCI STATUS:
-        // Mengubah flag status menjadi true di Firestore agar pada login berikutnya
-        // akun ini langsung diarahkan masuk ke Dashboard utama (Bypass Onboarding)
         'has_completed_onboarding': true,
       }, SetOptions(merge: true));
 

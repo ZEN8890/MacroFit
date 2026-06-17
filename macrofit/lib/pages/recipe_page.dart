@@ -706,7 +706,7 @@ class _RecipePageState extends State<RecipePage> {
                         foregroundColor: Colors.white,
                         icon: const Icon(Icons.add),
                         label: Text(
-                          englishActive ? 'Publish Recipe' : 'Bagikan Resep',
+                          englishActive ? 'Publish Recipe' : 'Terbitkan Resep',
                         ),
                       ),
               ),

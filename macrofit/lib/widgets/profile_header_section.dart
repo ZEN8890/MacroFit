@@ -131,6 +131,7 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
     final nameController = TextEditingController(text: currentName);
     final usernameController = TextEditingController(text: currentusername);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final int remainingNameDays = _getRemainingDaysToUpdateName(lastNameUpdate);
     final int remainingUsernameDays = _getRemainingDaysToUpdateUsername(
@@ -194,7 +195,9 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               isEnglishNotifier.value ? 'Cancel' : 'Batal',
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: isDark ? Colors.white60 : Colors.grey.shade600,
+              ),
             ),
           ),
           TextButton(
@@ -208,14 +211,30 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                         .replaceAll(' ', '');
 
                     if (newName.isEmpty || newusername.isEmpty) return;
-                    final Map<String, dynamic> updatePayload = {};
 
+                    final Map<String, dynamic> updatePayload = {};
+                    List<Widget> changesList = [];
+
+                    // Evaluasi perubahan Nama Lengkap dengan Style Warna Adaptif
                     if (newName != currentName && remainingNameDays <= 0) {
                       updatePayload['full_name'] = newName;
                       updatePayload['last_name_update'] =
                           FieldValue.serverTimestamp();
+                      changesList.add(
+                        Text(
+                          isEnglishNotifier.value
+                              ? '• Name: "$currentName" → "$newName"'
+                              : '• Nama: "$currentName" → "$newName"',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      );
                     }
 
+                    // Evaluasi perubahan Username dengan Style Warna Adaptif
                     if (newusername != currentusername &&
                         remainingUsernameDays <= 0) {
                       final checkDuplication = await FirebaseFirestore.instance
@@ -241,9 +260,121 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                         }
                         return;
                       }
+
                       updatePayload['username'] = newusername;
                       updatePayload['last_username_update'] =
                           FieldValue.serverTimestamp();
+                      changesList.add(
+                        Text(
+                          isEnglishNotifier.value
+                              ? '• Username: "@$currentusername" → "@$newusername"'
+                              : '• Username: "@$currentusername" → "@$newusername"',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (updatePayload.isEmpty) {
+                      if (context.mounted) Navigator.pop(context);
+                      return;
+                    }
+
+                    // TAMPILKAN POP-UP KONFIRMASI KEDUA (Sudah diperbaiki kontrasnya)
+                    if (context.mounted) {
+                      bool confirmSave =
+                          await showDialog<bool>(
+                            context: context,
+                            builder: (confirmContext) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              title: Text(
+                                isEnglishNotifier.value
+                                    ? 'Confirm Changes'
+                                    : 'Konfirmasi Perubahan',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isEnglishNotifier.value
+                                        ? 'Are you sure you want to change these data? You can only change them again after 14 days.'
+                                        : 'Apakah Anda yakin ingin mengubah data berikut? Anda baru bisa mengubahnya kembali setelah 14 hari.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      // 🟢 Kontras adaptif untuk teks isi deskripsi
+                                      color: isDark
+                                          ? Colors.white60
+                                          : Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Container pembungkus pratinjau perubahan agar rapi & berbobot
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: theme.primaryColor.withOpacity(
+                                        0.08,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: theme.primaryColor.withOpacity(
+                                          0.15,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: changesList,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(confirmContext, false),
+                                  child: Text(
+                                    isEnglishNotifier.value
+                                        ? 'Check Again'
+                                        : 'Periksa Kembali',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white60
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(confirmContext, true),
+                                  child: Text(
+                                    isEnglishNotifier.value
+                                        ? 'Yes, Save'
+                                        : 'Ya, Simpan',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+
+                      if (!confirmSave) return;
                     }
 
                     if (updatePayload.isNotEmpty) {
@@ -252,7 +383,10 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                           .doc(FirebaseAuth.instance.currentUser!.uid)
                           .update(updatePayload);
                     }
-                    if (context.mounted) Navigator.pop(context);
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   },
             child: Text(
               isEnglishNotifier.value ? 'Save' : 'Simpan',

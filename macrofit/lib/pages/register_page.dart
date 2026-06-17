@@ -121,7 +121,6 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (result == "success") {
-        // 🟢 FIX BIAR GA LANGSUNG LOGIN: Bersihkan sesi otomatis dari registrasi Firebase
         await FirebaseAuth.instance.signOut();
 
         if (mounted) {
@@ -135,7 +134,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
-          // 🟢 BALIKKAN KE LOGIN PAGE SESUAI RENCANA
           Navigator.pushReplacementNamed(context, "/login");
         }
       } else {

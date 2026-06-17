@@ -16,7 +16,6 @@ import 'providers/theme_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // app ini menggunakan flutter_dotenv untuk menyimpan API key secara aman
   try {
     await dotenv.load(fileName: "key.env");
   } catch (e) {
@@ -25,14 +24,12 @@ Future<void> main() async {
 
   try {
     await Firebase.initializeApp(
-      //deteksi otomatis platform dan menggunakan konfigurasi yang sesuai
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
     debugPrint("MacroFit: Firebase Initialization Error: $e");
   }
 
-  //menyembunyikan status bar dan navigation bar untuk pengalaman full-screen
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(
@@ -80,35 +77,32 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        if (authSnapshot.hasData) {
-          // 🟢 TAMBAHKAN KEY PADA FUTUREBUILDER
-          // Ini memastikan setiap kali user berubah, FutureBuilder akan dibuat ulang
+        if (authSnapshot.hasData && authSnapshot.data != null) {
           return FutureBuilder<DocumentSnapshot>(
             key: ValueKey(authSnapshot.data!.uid),
             future: FirebaseFirestore.instance
                 .collection('users')
                 .doc(authSnapshot.data!.uid)
-                .get(
-                  const GetOptions(source: Source.server),
-                ), // Memaksa ambil dari server
+                .get(const GetOptions(source: Source.server)),
             builder: (context, dbSnapshot) {
               if (dbSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
                   body: Center(child: CircularProgressIndicator()),
                 );
               }
-              //apabila dbsnapshot tidak memiliki data atau dokumen tidak ada, arahkan ke onboarding
+
               if (!dbSnapshot.hasData || !dbSnapshot.data!.exists) {
                 return const OnboardingPage();
               }
-              //deklarasi userData sebagai Map<String, dynamic> untuk mengambil diet_code
-              final userData = dbSnapshot.data!.data() as Map<String, dynamic>;
-              final dietCode = userData['diet_code'];
 
-              if (dietCode != null && dietCode.toString().isNotEmpty) {
+              final userData = dbSnapshot.data!.data() as Map<String, dynamic>?;
+              bool hasCompletedOnboarding =
+                  userData?['has_completed_onboarding'] ?? false;
+
+              if (hasCompletedOnboarding) {
                 return const NavigationMenu(key: ValueKey('main_nav'));
               } else {
-                return const OnboardingPage();
+                return const OnboardingPage(); // Buka Onboarding secara normal
               }
             },
           );

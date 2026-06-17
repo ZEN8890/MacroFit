@@ -3,10 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:macrofit/services/auth_services.dart';
 import '../utils/notification_helper.dart';
+import '../pages/onboarding_page.dart';
 import '../utils/global_state.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const LoginPage();
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -19,6 +23,20 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   bool _passwordIsVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 🟢 PEMUTUS LOOP KETAT:
+    // Jika aplikasi dibuka kembali dan AuthWrapper mendeteksi user belum menyelesaikan onboarding,
+    // AuthWrapper akan mengembalikan LoginPage. Di sini, sisa sesi tersebut langsung dihancurkan
+    // agar user tidak stuck dan bisa bebas berganti ke akun lain.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (FirebaseAuth.instance.currentUser != null) {
+        FirebaseAuth.instance.signOut();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -43,6 +61,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() => _isLoading = true);
+    OnboardingPage.cameFromLoginButton = true;
 
     final String? result = await _authService.userLogin(
       email: email,
@@ -53,52 +72,59 @@ class _LoginPageState extends State<LoginPage> {
 
     if (result == "success") {
       try {
-        // 1. Dapatkan UID dari user yang baru saja berhasil login
+        // 1. Ambil instans user yang baru saja login
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          // 2. Ambil snapshot datanya dari Cloud Firestore
+          // 2. Ambil data teranyar langsung dari server Firestore
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
-              .get();
+              .get(const GetOptions(source: Source.server));
 
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+
+          Notify.success(
+            context,
+            isEnglish ? "Login successful!" : "Login berhasil!",
+          );
+
+          // Berikan jeda sedikit agar user bisa melihat notifikasi sukses
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (!mounted) return;
+
+          // 3. JALUR NAVIGASI AKTIF: Periksa status onboarding untuk menentukan tujuan rute
           if (userDoc.exists && userDoc.data() != null) {
             final userData = userDoc.data() as Map<String, dynamic>;
-
-            // 3. Ambil bendera status onboarding (default: false jika akun gres baru daftar)
             bool hasCompletedOnboarding =
                 userData['has_completed_onboarding'] ?? false;
 
-            if (mounted) setState(() => _isLoading = false);
-
-            Notify.success(
-              context,
-              isEnglish ? "Login successful!" : "Login berhasil!",
-            );
-
-            await Future.delayed(const Duration(milliseconds: 500));
-            if (!mounted) return;
-
-            // 🟢 PERCABANGAN RUTE KRITIS:
             if (hasCompletedOnboarding) {
-              // User Lama -> langsung lolos ke Home Screen Beranda Utama
+              // Akun Lama -> Antar langsung ke Dashboard Utama (/)
               Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
             } else {
-              // User Baru Pertama Kali Login -> Dipaksa belok ke halaman Onboarding
+              // Akun Baru -> Antar ke halaman Onboarding
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 "/onboarding",
                 (route) => false,
               );
             }
-            return;
+          } else {
+            // Jika dokumen tidak ada sama sekali di Firestore, otomatis lempar ke Onboarding
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              "/onboarding",
+              (route) => false,
+            );
           }
+          return;
         }
       } catch (dbError) {
-        debugPrint("Gagal memeriksa status onboarding database: $dbError");
+        debugPrint("Gagal memeriksa status rute paska-login: $dbError");
       }
 
-      // Fallback aman jika pembacaan Firestore gagal, langsung ke Home
+      // Fallback aman jika pembacaan Firestore gagal di tengah jalan
       if (mounted) setState(() => _isLoading = false);
       Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
     } else {

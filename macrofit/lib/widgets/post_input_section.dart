@@ -193,7 +193,174 @@ class PostInputSection extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            onPressed: onCreatePost,
+                            onPressed: () async {
+                              // Validasi dasar: Jangan ijinkan posting jika teks dan gambar kosong
+                              if (controller.text.trim().isEmpty &&
+                                  selectedImages.isEmpty) {
+                                return;
+                              }
+
+                              final isDark =
+                                  theme.brightness == Brightness.dark;
+
+                              // 1. TAMPILKAN POP-UP KONFIRMASI POSTING
+                              bool confirmPost =
+                                  await showDialog<bool>(
+                                    context: context,
+                                    builder: (confirmContext) => AlertDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      title: Text(
+                                        englishActive
+                                            ? 'Confirm Post'
+                                            : 'Konfirmasi Postingan',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            englishActive
+                                                ? 'Are you sure you want to publish this to the forum community?'
+                                                : 'Apakah Anda yakin ingin membagikan ini ke forum komunitas?',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              // Menyesuaikan kontras teks deskripsi dialog
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.black54,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          // PRATINJAU ISI POSTINGAN
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: theme.primaryColor
+                                                  .withOpacity(0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: theme.primaryColor
+                                                    .withOpacity(0.15),
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  controller.text
+                                                          .trim()
+                                                          .isNotEmpty
+                                                      ? '"${controller.text.trim()}"'
+                                                      : (englishActive
+                                                            ? '(No text content)'
+                                                            : '(Tanpa konten teks)'),
+                                                  maxLines: 4,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontStyle:
+                                                        controller.text
+                                                            .trim()
+                                                            .isNotEmpty
+                                                        ? FontStyle.italic
+                                                        : FontStyle.normal,
+                                                    // 🟢 ADAPTIF KONTRAS TINGGI: menggunakan onSurface (Putih di Dark / Hitam di Light)
+                                                    color:
+                                                        controller.text
+                                                            .trim()
+                                                            .isNotEmpty
+                                                        ? theme
+                                                              .colorScheme
+                                                              .onSurface
+                                                        : (isDark
+                                                              ? Colors.white38
+                                                              : Colors.black38),
+                                                  ),
+                                                ),
+                                                if (selectedImages
+                                                    .isNotEmpty) ...[
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.image,
+                                                        size: 16,
+                                                        color:
+                                                            theme.primaryColor,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        englishActive
+                                                            ? 'Attached: ${selectedImages.length} photo(s)'
+                                                            : 'Terlampir: ${selectedImages.length} foto',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: theme
+                                                              .primaryColor,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            false,
+                                          ),
+                                          child: Text(
+                                            englishActive
+                                                ? 'Check Again'
+                                                : 'Periksa Kembali',
+                                            style: const TextStyle(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            true,
+                                          ),
+                                          child: Text(
+                                            englishActive
+                                                ? 'Yes, Post'
+                                                : 'Ya, Kirim',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.primaryColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ) ??
+                                  false;
+
+                              // 2. Jika user membatalkan, jangan teruskan fungsi eksekusi
+                              if (!confirmPost) return;
+
+                              // 3. Panggil fungsi asli untuk memproses pembuatan post di Firestore
+                              onCreatePost();
+                            },
                             child: Text(
                               englishActive ? 'Post' : 'Post',
                               style: const TextStyle(

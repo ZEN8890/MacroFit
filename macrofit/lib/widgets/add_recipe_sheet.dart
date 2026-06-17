@@ -572,7 +572,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (_formKey.currentState!.validate()) {
                           List<String> ingList = ingredientsController.text
                               .split(',')
@@ -585,6 +585,149 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                               .where((e) => e.isNotEmpty)
                               .toList();
 
+                          final isDark = theme.brightness == Brightness.dark;
+
+                          // 1. TAMPILKAN POP-UP KONFIRMASI SEBELUM PUBLISH / UPDATE
+                          bool confirmPublish =
+                              await showDialog<bool>(
+                                context: context,
+                                builder: (confirmContext) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  title: Text(
+                                    widget.isEditing
+                                        ? (englishActive
+                                              ? 'Confirm Update'
+                                              : 'Konfirmasi Perubahan')
+                                        : (englishActive
+                                              ? 'Confirm Recipe'
+                                              : 'Konfirmasi Resep'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.isEditing
+                                            ? (englishActive
+                                                  ? 'Are you sure you want to update this recipe details?'
+                                                  : 'Apakah Anda yakin ingin memperbarui detail resep ini?')
+                                            : (englishActive
+                                                  ? 'Are you sure you want to publish this new healthy recipe?'
+                                                  : 'Apakah Anda yakin ingin mempublikasikan resep sehat baru ini?'),
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          // 🟢 Menyesuaikan kontras teks deskripsi dialog
+                                          color: isDark
+                                              ? Colors.white60
+                                              : Colors.black54,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // Rangkuman Data Ringkas dalam Container Kontras
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: theme.primaryColor.withOpacity(
+                                            0.08,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: theme.primaryColor
+                                                .withOpacity(0.15),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '• ${englishActive ? "Menu" : "Menu"}: ${titleController.text.trim()}',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '• ${englishActive ? "Calories" : "Kalori"}: ${calorieController.text.trim()} kkal',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '• ${englishActive ? "Diet Target" : "Target Diet"}: ${_getCleanDietLabel(selectedSuitableDiet, englishActive)}',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(confirmContext, false),
+                                      child: Text(
+                                        englishActive
+                                            ? 'Check Again'
+                                            : 'Periksa Kembali',
+                                        style: TextStyle(
+                                          color: isDark
+                                              ? Colors.white60
+                                              : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(confirmContext, true),
+                                      child: Text(
+                                        widget.isEditing
+                                            ? (englishActive
+                                                  ? 'Yes, Update'
+                                                  : 'Ya, Perbarui')
+                                            : (englishActive
+                                                  ? 'Yes, Publish'
+                                                  : 'Ya, Publish'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ) ??
+                              false;
+
+                          // 2. Jika user menekan tombol 'Periksa Kembali', batalkan eksekusi
+                          if (!confirmPublish) return;
+
+                          // 3. Eksekusi callback onPublish setelah mendapatkan konfirmasi positif
                           widget.onPublish(
                             titleController.text.trim(),
                             int.tryParse(calorieController.text) ?? 0,
@@ -594,7 +737,8 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                             widget.initialUnsuitable ?? 'None',
                             _selectedImages,
                           );
-                          Navigator.pop(context);
+
+                          if (context.mounted) Navigator.pop(context);
                         }
                       },
                       child: Text(
