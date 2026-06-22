@@ -6,7 +6,7 @@ import '../services/location_services.dart';
 import '../services/restaurant_services.dart';
 import '../widgets/restaurant_card.dart';
 import '../services/ai_recommendation_services.dart';
-import '../utils/global_state.dart'; // Mengikat notifier global state
+import '../utils/global_state.dart';
 
 class RestaurantPage extends StatefulWidget {
   const RestaurantPage({super.key});
@@ -106,7 +106,6 @@ class _RestaurantPageState extends State<RestaurantPage> {
             'lng': resLng,
             'recommended': isHighlyRecommended,
             'place_id': element['place_id'],
-            // 🟢 TRANSLASI ALAMAT FALLBACK KOSONG
             'address':
                 element['address'] ??
                 (isEnglishNotifier.value
@@ -142,15 +141,12 @@ class _RestaurantPageState extends State<RestaurantPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman Restoran dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              // 🟢 TITLE APPBAR DWI-BAHASA
               englishActive
                   ? "Nearby Restaurants"
                   : "Restoran Terdekat (Google API)",
@@ -166,7 +162,6 @@ class _RestaurantPageState extends State<RestaurantPage> {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
                       Text(
-                        // 🟢 INDIKATOR LOADING DWI-BAHASA
                         englishActive
                             ? "Finding official Google restaurants nearby..."
                             : "Mencari restoran resmi Google di sekitarmu...",
@@ -215,7 +210,6 @@ class _RestaurantPageState extends State<RestaurantPage> {
                       height: 300,
                       child: Center(
                         child: Text(
-                          // 🟢 FALLBACK RADIUS DWI-BAHASA
                           englishActive
                               ? "No restaurants detected within a 3 km radius."
                               : "Tidak ada tempat makan terdeteksi dalam radius 3 km.",

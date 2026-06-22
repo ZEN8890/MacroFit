@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../pages/comment_page.dart';
 import '../pages/image_preview_page.dart';
 import '../pages/public_profile_page.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class PostCard extends StatelessWidget {
   final String postId;

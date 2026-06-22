@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'restaurant_detail_sheet.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class RestaurantCard extends StatelessWidget {
   final Map<String, dynamic> restaurant;
@@ -16,8 +16,6 @@ class RestaurantCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bool isRecommended = restaurant['recommended'] == true;
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh tampilan kartu dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -163,7 +161,6 @@ class RestaurantCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        // 🟢 TRANSLASI BADGE REKOMENDASI
                         englishActive
                             ? "SUITABLE FOR YOUR DIET"
                             : "COCOK UNTUK DIETMU",

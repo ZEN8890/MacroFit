@@ -4,7 +4,7 @@ import 'pages/history_page.dart';
 import 'pages/restaurant_page.dart';
 import 'pages/recipe_page.dart';
 import 'pages/forum_page.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class NavigationMenu extends StatefulWidget {
   const NavigationMenu({super.key});
@@ -35,7 +35,6 @@ class _NavigationMenuState extends State<NavigationMenu> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus Scaffold dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -78,7 +77,7 @@ class _NavigationMenuState extends State<NavigationMenu> {
               NavigationDestination(
                 icon: const Icon(Icons.forum_outlined),
                 selectedIcon: const Icon(Icons.forum),
-                label: 'Forum', // 'Forum' bersifat universal
+                label: 'Forum',
               ),
             ],
           ),

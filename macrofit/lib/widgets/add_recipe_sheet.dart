@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:macrofit/utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class AddRecipeSheet extends StatefulWidget {
   final List<String> dietOptions;
@@ -123,7 +123,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
     });
   }
 
-  // 🟢 FUNGSI HELPER INTERNAL: Mengubah value database menjadi label bersih sesuai bahasa aktif
   String _getCleanDietLabel(String value, bool isEnglish) {
     if (value == 'gain_muscle') {
       return isEnglish ? 'Gain Muscle' : 'Menambah Otot';
@@ -150,8 +149,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh kembalian widget dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -587,7 +584,6 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
 
                           final isDark = theme.brightness == Brightness.dark;
 
-                          // 1. TAMPILKAN POP-UP KONFIRMASI SEBELUM PUBLISH / UPDATE
                           bool confirmPublish =
                               await showDialog<bool>(
                                 context: context,
@@ -623,14 +619,12 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                                                   : 'Apakah Anda yakin ingin mempublikasikan resep sehat baru ini?'),
                                         style: TextStyle(
                                           fontSize: 14,
-                                          // 🟢 Menyesuaikan kontras teks deskripsi dialog
                                           color: isDark
                                               ? Colors.white60
                                               : Colors.black54,
                                         ),
                                       ),
                                       const SizedBox(height: 16),
-                                      // Rangkuman Data Ringkas dalam Container Kontras
                                       Container(
                                         width: double.infinity,
                                         padding: const EdgeInsets.all(12),
@@ -655,9 +649,8 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -666,9 +659,8 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -677,9 +669,8 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurface, // 🟢 Adaptif Light/Dark
+                                                color:
+                                                    theme.colorScheme.onSurface,
                                               ),
                                             ),
                                           ],
@@ -723,11 +714,7 @@ class _AddRecipeSheetState extends State<AddRecipeSheet> {
                                 ),
                               ) ??
                               false;
-
-                          // 2. Jika user menekan tombol 'Periksa Kembali', batalkan eksekusi
                           if (!confirmPublish) return;
-
-                          // 3. Eksekusi callback onPublish setelah mendapatkan konfirmasi positif
                           widget.onPublish(
                             titleController.text.trim(),
                             int.tryParse(calorieController.text) ?? 0,

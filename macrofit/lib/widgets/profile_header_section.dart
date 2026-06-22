@@ -214,8 +214,6 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
 
                     final Map<String, dynamic> updatePayload = {};
                     List<Widget> changesList = [];
-
-                    // Evaluasi perubahan Nama Lengkap dengan Style Warna Adaptif
                     if (newName != currentName && remainingNameDays <= 0) {
                       updatePayload['full_name'] = newName;
                       updatePayload['last_name_update'] =
@@ -233,8 +231,6 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                         ),
                       );
                     }
-
-                    // Evaluasi perubahan Username dengan Style Warna Adaptif
                     if (newusername != currentusername &&
                         remainingUsernameDays <= 0) {
                       final checkDuplication = await FirebaseFirestore.instance
@@ -282,8 +278,6 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                       if (context.mounted) Navigator.pop(context);
                       return;
                     }
-
-                    // TAMPILKAN POP-UP KONFIRMASI KEDUA (Sudah diperbaiki kontrasnya)
                     if (context.mounted) {
                       bool confirmSave =
                           await showDialog<bool>(
@@ -311,14 +305,12 @@ class _ProfileHeaderSectionState extends State<ProfileHeaderSection> {
                                         : 'Apakah Anda yakin ingin mengubah data berikut? Anda baru bisa mengubahnya kembali setelah 14 hari.',
                                     style: TextStyle(
                                       fontSize: 14,
-                                      // 🟢 Kontras adaptif untuk teks isi deskripsi
                                       color: isDark
                                           ? Colors.white60
                                           : Colors.black54,
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-                                  // Container pembungkus pratinjau perubahan agar rapi & berbobot
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(12),

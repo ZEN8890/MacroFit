@@ -269,15 +269,10 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
       },
     );
   }
-
-  // 🟢 FUNGSI YANG SUDAH DIPERBAIKI SINKRON DENGAN PUBLIC PROFILE PAGE
   void _navigateToPublicProfile(String targetUserId) {
     if (targetUserId == widget.currentUserId) {
-      // Jika mengklik ulasan diri sendiri, diamkan saja
       return;
     }
-
-    // Arahkan navigasi dengan parameter yang benar (targetUserId)
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -328,7 +323,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // JUDUL RESEP
                     Text(
                       _currentRecipeMap['title'] ?? 'Recipe',
                       style: const TextStyle(
@@ -339,8 +333,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
 
                     const SizedBox(
                       height: 2,
-                    ), // 🟢 SEBELUMNYA 8, DIUBAH JADI 2 AGAR JARKANYA RAPAT
-
+                    ),
                     Text(
                       englishActive
                           ? 'By: @$recipeUsername'
@@ -357,8 +350,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                       style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 12),
-
-                    // BUTTONS ACTION AUTHOR VALIDATION
                     if (isAuthor && !isAiRecipe) ...[
                       Row(
                         children: [
@@ -482,7 +473,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                     ],
                     const Divider(height: 32),
 
-                    // BAHAN-BAHAN
                     Text(
                       englishActive ? 'Ingredients:' : 'Bahan-bahan:',
                       style: const TextStyle(
@@ -525,8 +515,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                             },
                           ),
                     const Divider(height: 32),
-
-                    // LANGKAH MEMASAK
                     Text(
                       englishActive ? 'Instructions:' : 'Langkah Memasak:',
                       style: const TextStyle(
@@ -566,8 +554,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                               );
                             },
                           ),
-
-                    // SEKSI REVIEWS KOMUNITAS (HANYA MUNCUL JIKALAU NON-AI RECIPE)
                     if (!isAiRecipe) ...[
                       const Divider(height: 32),
 
@@ -600,7 +586,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
 
                           return StatefulBuilder(
                             builder: (context, setReviewState) {
-                              // 🟢 AMBIL SEMUA DATA SESUAI FILTER (Tanpa dipotong .take(3) lagi)
                               final docs = rawDocs.where((doc) {
                                 final d = doc.data() as Map<String, dynamic>;
                                 if (_filterRating == 0) return true;
@@ -623,8 +608,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-
-                                  // Google Maps Filter Chips Style
                                   SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
                                     physics: const BouncingScrollPhysics(),
@@ -673,8 +656,6 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-
-                                  // List Review Box (Visual Tinggi Terkunci Setara 3 List, Tapi Bisa Di-scroll Kebawah Untuk Melihat Semua Komen)
                                   Container(
                                     constraints: const BoxConstraints(
                                       maxHeight: 180,
@@ -930,10 +911,7 @@ class _RecipeDetailSheetState extends State<RecipeDetailSheet> {
                                             ),
                                           ),
                                   ),
-
                                   const Divider(height: 40),
-
-                                  // Form Input Ulasan Dinamis
                                   StatefulBuilder(
                                     builder: (context, setFormState) {
                                       return _isEditMode && myReviewDoc != null

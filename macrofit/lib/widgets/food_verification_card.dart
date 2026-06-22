@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class FoodVerificationCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -64,8 +64,6 @@ class FoodVerificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus kartu verifikasi dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {

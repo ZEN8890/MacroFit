@@ -16,15 +16,10 @@ class GenderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil skema warna dari tema aktif
     final colorScheme = Theme.of(context).colorScheme;
-
-    // LOGIKA WARNA PINK KUSTOM
     final Color activeColor = (label == "Female" || label == "Wanita")
         ? Colors.pink
         : colorScheme.primary;
-
-    // 🟢 PERBAIKAN: Langsung kembalikan GestureDetector (Buang pembungkus Expanded di sini)
     return GestureDetector(
       onTap: onTap_gender,
       child: AnimatedContainer(

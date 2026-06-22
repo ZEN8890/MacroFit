@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'post_card.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class PostListStream extends StatelessWidget {
   final String? filterUid;
@@ -30,7 +30,6 @@ class PostListStream extends StatelessWidget {
       query = query.where('uid', isEqualTo: filterUid);
     }
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus StreamBuilder dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {

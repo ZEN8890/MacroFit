@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class RecipeCard extends StatelessWidget {
   final String title;
@@ -49,7 +49,6 @@ class RecipeCard extends StatelessWidget {
       formatAuthor = '@$author';
     }
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus widget kartu dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {

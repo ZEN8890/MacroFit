@@ -7,7 +7,7 @@ import '../widgets/post_input_section.dart';
 import '../widgets/comment_card.dart';
 import '../utils/notification_helper.dart';
 import '../utils/global_state.dart';
-import 'public_profile_page.dart'; // 🟢 Tambahkan import halaman profil publik jika letaknya satu folder
+import 'public_profile_page.dart';
 
 class CommentPage extends StatefulWidget {
   final String postId;
@@ -435,7 +435,6 @@ class _CommentPageState extends State<CommentPage> {
                             onUnsend: (id, _) {},
                             onReplyTrigger: (handle) =>
                                 _triggerReply(handle, doc.id, data),
-                            // 🟢 FITUR BARU: Handler ketika foto profil di CommentCard ditekan
                             onTapAvatar: (commentUid) {
                               if (commentUid.isNotEmpty) {
                                 Navigator.push(

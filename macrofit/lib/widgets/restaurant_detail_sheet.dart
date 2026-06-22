@@ -20,20 +20,17 @@ class RestaurantDetailSheet extends StatefulWidget {
 
 class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
   final AIRecommendationService _aiService = AIRecommendationService();
-
-  // 🟢 Definisikan variabel penampung Future agar tidak ter-rebuild saat digeser
   Future<Map<String, dynamic>>? _aiRecommendationFuture;
 
   @override
   void initState() {
     super.initState();
-    // 🟢 Kunci pemanggilan API AI tepat saat sheet pertama kali diinisialisasi
     _aiRecommendationFuture = _aiService.getAIRecommendation(
       restaurantName: widget.restaurant['name'] ?? 'Restoran',
       cuisineType: widget.restaurant['type'] ?? 'Tempat Makan',
       userTargetCalorie: 2500,
       isBulking: false,
-      isEnglish: isEnglishNotifier.value, // Gunakan state bahasa awal
+      isEnglish: isEnglishNotifier.value,
     );
   }
 
@@ -92,8 +89,6 @@ class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Judul & Rating Restoran
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -133,7 +128,6 @@ class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
                 ),
                 const SizedBox(height: 20),
 
-                // Lokasi Preview Map Statis
                 Text(
                   englishActive ? "Location Preview" : "Estimasi Lokasi Tujuan",
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -171,11 +165,8 @@ class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // 🟢 AI Recommendation Section dengan Future Terkunci (Anti-Refresh)
                 FutureBuilder<Map<String, dynamic>>(
-                  future:
-                      _aiRecommendationFuture, // Gunakan objek lokal dari initState
+                  future: _aiRecommendationFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
@@ -245,8 +236,6 @@ class _RestaurantDetailSheetState extends State<RestaurantDetailSheet> {
                   },
                 ),
                 const SizedBox(height: 25),
-
-                // Tombol Navigasi Google Maps intent
                 SizedBox(
                   width: double.infinity,
                   height: 50,

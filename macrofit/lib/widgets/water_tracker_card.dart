@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_services.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class WaterTrackerCard extends StatelessWidget {
   final String uid;
@@ -19,7 +19,6 @@ class WaterTrackerCard extends StatelessWidget {
     String today = DateTime.now().toString().split(' ')[0];
     double targetWater = (userData['target_water'] ?? 2000).toDouble();
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh tampilan kartu
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -70,7 +69,6 @@ class WaterTrackerCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              // 🟢 TRANSLASI JUDUL DWI-BAHASA
                               englishActive
                                   ? "Daily Hydration"
                                   : "Hidrasi Hari Ini",

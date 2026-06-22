@@ -14,8 +14,7 @@ class AuthService {
     required String firstName,
     required String lastName,
     required String username,
-    required DateTime
-    dateOfBirth, // Menerima input tanggal lahir dari RegisterPage
+    required DateTime dateOfBirth,
   }) async {
     final bool isEnglish = isEnglishNotifier.value;
     try {
@@ -36,26 +35,16 @@ class AuthService {
         //proses perubahan data user model ke dalam bentuk map untuk disimpan ke firestore
         Map<String, dynamic> userDataMap = newUser.toMap();
 
-        // Menyimpan username
         userDataMap['username'] = username;
-
-        // Menyimpan Nama Lengkap
         userDataMap['full_name'] = "$firstName $lastName".trim();
-
-        // Menyimpan data Date of Birth ke dokumen Firestore
         userDataMap['date_of_birth'] = dateOfBirth;
-
-        // Menandai secara default bahwa akun baru ini BELUM menyelesaikan tahap onboarding.
-        // Data ini dibaca oleh router utama untuk membelokkan user baru ke Onboarding Page.
         userDataMap['has_completed_onboarding'] = false;
-
-        //Mengunci struktur agar saat awal akun dibuat tidak kosong (null)
-        userDataMap['weight'] = 65.0; // Default awal 65kg
-        userDataMap['height'] = 170.0; // Default awal 170cm
-        userDataMap['gender'] = 'Laki-laki'; // Default gender awal
-        userDataMap['diet_code'] = 'healthy_lifestyle'; // Default program awal
-        userDataMap['activity_multiplier'] =
-            1.2; // Default tingkat aktivitas santai
+        //Default data user, supaya tidak null
+        userDataMap['weight'] = 65.0;
+        userDataMap['height'] = 170.0;
+        userDataMap['gender'] = 'Laki-laki';
+        userDataMap['diet_code'] = 'healthy_lifestyle';
+        userDataMap['activity_multiplier'] = 1.2;
         userDataMap['target_calories'] = 2000;
         userDataMap['target_carbs'] = 275;
         userDataMap['target_proteins'] = 100;

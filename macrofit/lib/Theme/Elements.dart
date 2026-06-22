@@ -5,12 +5,10 @@ class MacroFitTheme {
   static const Color backgroundLight = Color(0xFFF8F9FA);
   static const Color backgroundDark = Color(0xFF121212);
   static const Color cardDark = Color(0xFF1E1E1E);
-
-  // Perbaikan warna unselected agar lebih kontras
   static const Color unselectedDark = Color(0xFF2D2D2D);
   static const Color unselectedLight = Color(0xFFE0E0E0);
 
-  // --- LIGHT THEME ---
+  // Light Theme
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -22,11 +20,9 @@ class MacroFitTheme {
         brightness: Brightness.light,
         primary: primaryBlue,
         surface: Colors.white,
-        onSurface:
-            Colors.black87, // Memastikan teks di atas surface berwarna hitam
+        onSurface: Colors.black87,
         outline: Colors.grey.shade300,
       ),
-      // Tambahkan TextTheme eksplisit
       textTheme: const TextTheme(
         bodyLarge: TextStyle(color: Colors.black87),
         bodyMedium: TextStyle(color: Colors.black87),
@@ -42,7 +38,7 @@ class MacroFitTheme {
     );
   }
 
-  // --- DARK THEME ---
+  //Dark Theme
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
@@ -54,10 +50,9 @@ class MacroFitTheme {
         brightness: Brightness.dark,
         primary: primaryBlue,
         surface: cardDark,
-        onSurface: Colors.white, // Teks di atas surface (kartu/bg) jadi putih
+        onSurface: Colors.white,
         outline: unselectedDark,
       ),
-      // Tambahkan TextTheme untuk Dark Mode
       textTheme: const TextTheme(
         bodyLarge: TextStyle(color: Colors.white),
         bodyMedium: TextStyle(color: Colors.white70),
@@ -117,8 +112,7 @@ class MacroFitTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        disabledBackgroundColor:
-            Colors.grey.shade300, // Warna saat button disable
+        disabledBackgroundColor: Colors.grey.shade300,
         minimumSize: const Size(double.infinity, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

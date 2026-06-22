@@ -199,9 +199,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 20),
                   InkWell(
                     onTap: () => _selectDateOfBirth(context, englishActive),
-                    borderRadius: BorderRadius.circular(
-                      12,
-                    ), // 👈 Menjaga efek ripple klik tetap rounded
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -211,9 +209,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         border: Border.all(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.white30
-                              : Colors
-                                    .grey
-                                    .shade400, // Menyesuaikan warna border abu form standar
+                              : Colors.grey.shade400,
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),

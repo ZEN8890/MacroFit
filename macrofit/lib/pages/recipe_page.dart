@@ -5,15 +5,12 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-
 import '../widgets/recipe_detail_sheet.dart';
 import '../widgets/add_recipe_sheet.dart';
 import '../widgets/recipe_stream_view.dart';
 import '../services/storage_services.dart';
 import '../utils/notification_helper.dart';
 import '../utils/global_state.dart';
-
-// Impor komponen modular baru kita
 import '../widgets/recipe_ai_tab.dart';
 import '../widgets/recipe_saved_tab.dart';
 import '../widgets/recipe_upload_overlay.dart';
@@ -586,7 +583,6 @@ class _RecipePageState extends State<RecipePage> {
                 backgroundColor: theme.scaffoldBackgroundColor,
                 body: TabBarView(
                   children: [
-                    // 🟢 TAB 1 (MODULARIZED): Memanggil widget RecipeAITab
                     RefreshIndicator(
                       color: theme.primaryColor,
                       onRefresh: () async {
@@ -608,7 +604,6 @@ class _RecipePageState extends State<RecipePage> {
                       ),
                     ),
 
-                    // TAB COMMUNITY
                     RefreshIndicator(
                       color: theme.primaryColor,
                       onRefresh: () async {
@@ -636,7 +631,6 @@ class _RecipePageState extends State<RecipePage> {
                       ),
                     ),
 
-                    // TAB PUBLISHED
                     RefreshIndicator(
                       color: theme.primaryColor,
                       onRefresh: () async {
@@ -663,8 +657,6 @@ class _RecipePageState extends State<RecipePage> {
                         onToggleFavorite: _toggleFavoriteRecipe,
                       ),
                     ),
-
-                    // 🟢 TAB 4 (MODULARIZED): Memanggil widget RecipeSavedTab
                     RefreshIndicator(
                       color: theme.primaryColor,
                       onRefresh: () async {
@@ -711,7 +703,6 @@ class _RecipePageState extends State<RecipePage> {
                       ),
               ),
 
-              // 🟢 DIALOG OVERLAY (MODULARIZED): Memanggil widget RecipeUploadOverlay
               if (_isUploadingRecipe)
                 RecipeUploadOverlay(isDarkMode: isDarkMode, theme: theme),
             ],

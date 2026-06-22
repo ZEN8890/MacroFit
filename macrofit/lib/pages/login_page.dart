@@ -27,10 +27,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    // 🟢 PEMUTUS LOOP KETAT:
-    // Jika aplikasi dibuka kembali dan AuthWrapper mendeteksi user belum menyelesaikan onboarding,
-    // AuthWrapper akan mengembalikan LoginPage. Di sini, sisa sesi tersebut langsung dihancurkan
-    // agar user tidak stuck dan bisa bebas berganti ke akun lain.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (FirebaseAuth.instance.currentUser != null) {
         FirebaseAuth.instance.signOut();
@@ -72,10 +68,8 @@ class _LoginPageState extends State<LoginPage> {
 
     if (result == "success") {
       try {
-        // 1. Ambil instans user yang baru saja login
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          // 2. Ambil data teranyar langsung dari server Firestore
           final userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
@@ -89,21 +83,17 @@ class _LoginPageState extends State<LoginPage> {
             isEnglish ? "Login successful!" : "Login berhasil!",
           );
 
-          // Berikan jeda sedikit agar user bisa melihat notifikasi sukses
           await Future.delayed(const Duration(milliseconds: 500));
           if (!mounted) return;
 
-          // 3. JALUR NAVIGASI AKTIF: Periksa status onboarding untuk menentukan tujuan rute
           if (userDoc.exists && userDoc.data() != null) {
             final userData = userDoc.data() as Map<String, dynamic>;
             bool hasCompletedOnboarding =
                 userData['has_completed_onboarding'] ?? false;
 
             if (hasCompletedOnboarding) {
-              // Akun Lama -> Antar langsung ke Dashboard Utama (/)
               Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
             } else {
-              // Akun Baru -> Antar ke halaman Onboarding
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 "/onboarding",
@@ -111,7 +101,6 @@ class _LoginPageState extends State<LoginPage> {
               );
             }
           } else {
-            // Jika dokumen tidak ada sama sekali di Firestore, otomatis lempar ke Onboarding
             Navigator.pushNamedAndRemoveUntil(
               context,
               "/onboarding",
@@ -124,7 +113,6 @@ class _LoginPageState extends State<LoginPage> {
         debugPrint("Gagal memeriksa status rute paska-login: $dbError");
       }
 
-      // Fallback aman jika pembacaan Firestore gagal di tengah jalan
       if (mounted) setState(() => _isLoading = false);
       Navigator.pushNamedAndRemoveUntil(context, "/", (route) => false);
     } else {

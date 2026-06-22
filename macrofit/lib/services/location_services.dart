@@ -1,14 +1,12 @@
 import 'package:geolocator/geolocator.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class LocationService {
-  /// Fungsi untuk mendapatkan posisi GPS saat ini dengan dukungan dwi-bahasa
   Future<Position> getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
     final bool isEnglish = isEnglishNotifier.value;
 
-    // 1. Cek apakah layanan lokasi di HP aktif
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return Future.error(
@@ -18,7 +16,6 @@ class LocationService {
       );
     }
 
-    // 2. Cek status izin akses lokasi aplikasi
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -39,7 +36,6 @@ class LocationService {
       );
     }
 
-    // 3. Jika aman, ambil koordinat posisi sekarang
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );

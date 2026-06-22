@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'nutrition_progress_bar.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class NutritionalCard extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -42,7 +42,6 @@ class NutritionalCard extends StatelessWidget {
         double currentSugar = (logData['consumed_sugar'] ?? 0).toDouble();
         double targetSugar = (userData['target_sugar'] ?? 50.0).toDouble();
 
-        // 🟢 REAKTIF MULTI-BAHASA
         return ValueListenableBuilder<bool>(
           valueListenable: isEnglishNotifier,
           builder: (context, englishActive, child) {

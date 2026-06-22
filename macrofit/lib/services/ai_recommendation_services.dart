@@ -10,24 +10,20 @@ class AIRecommendationService {
     required String cuisineType,
     required double userTargetCalorie,
     required bool isBulking,
-    required bool
-    isEnglish, // 🟢 PARAMETER BARU: Mendeteksi status bahasa aktif saat ini
+    required bool isEnglish,
   }) async {
     if (_apiKey.isEmpty) return {'error': 'API Key Gemini tidak ditemukan'};
 
-    // 1. Inisialisasi model Gemini
     final model = GenerativeModel(
       model: 'gemini-3.1-flash-lite',
       apiKey: _apiKey,
       generationConfig: GenerationConfig(responseMimeType: 'application/json'),
     );
 
-    // 🟢 SINKRONISASI BAHASA PROMPT SINGEL: Mengatur instruksi bahasa data balasan JSON AI
     String languageInstruction = isEnglish
         ? "Strictly generate the entire text values response (ai_diet_tag, ai_reason, and recommended_menus names/descriptions) in English language."
         : "Tolong generate seluruh nilai respon teks (ai_diet_tag, ai_reason, dan recommended_menus) dalam Bahasa Indonesia secara konsisten.";
 
-    // 2. Susun Prompt (Instruksi) Cerdas untuk AI
     final prompt =
         '''
     Anda adalah seorang Ahli Gizi Digital profesional untuk aplikasi MacroFit.
@@ -70,13 +66,11 @@ class AIRecommendationService {
     }
   }
 
-  // FUNGSI: Analisis Massal List Restoran menggunakan Gemini 3.1 Flash Lite
   Future<List<dynamic>> filterRestaurantListAI({
     required List<Map<String, dynamic>> rawGoogleRestaurants,
     required double userTargetCalorie,
     required bool isBulking,
-    required bool
-    isEnglish, // 🟢 PARAMETER BARU: Mendeteksi status bahasa aktif saat ini
+    required bool isEnglish,
   }) async {
     if (_apiKey.isEmpty || rawGoogleRestaurants.isEmpty) return [];
 
@@ -96,7 +90,6 @@ class AIRecommendationService {
         )
         .toList();
 
-    // 🟢 SINKRONISASI BAHASA PROMPT BULK FILTER: Mengatur instruksi bahasa pembuatan label diet kustom
     String bulkLanguageInstruction = isEnglish
         ? "Strictly provide the 'ai_diet_tag' text value description in English language (e.g., 'High Protein', 'Low Calories', 'Clean Eating')."
         : "Tolong berikan deskripsi nilai teks 'ai_diet_tag' dalam Bahasa Indonesia secara konsisten (Contoh: 'Tinggi Protein', 'Rendah Kalori', 'Bersih Alami').";

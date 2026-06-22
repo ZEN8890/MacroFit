@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class DailyInsightCarousel extends StatefulWidget {
   const DailyInsightCarousel({super.key});
@@ -13,8 +13,6 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _timer;
-
-  // 🟢 DATA DWI-BAHASA: Menyediakan versi EN langsung di dalam struktur Map lokal
   final List<Map<String, String>> _insights = [
     {
       "title": "Tips Diet: High Protein",
@@ -92,7 +90,6 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
   @override
   void initState() {
     super.initState();
-    // Setup Auto-play setiap 5 detik
     _timer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
       if (_currentPage < _insights.length - 1) {
         _currentPage++;
@@ -164,8 +161,6 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus komparasi visual halaman dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -187,7 +182,6 @@ class _DailyInsightCarouselState extends State<DailyInsightCarousel> {
               ),
             ),
             const SizedBox(height: 12),
-            // Indicator Titik-titik
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(

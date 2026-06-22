@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../pages/comment_page.dart'; // 🟢 FIX IMPOR: Pastikan lokasi impor berkas CommentPage Anda sudah benar
+import '../pages/comment_page.dart';
 
 class CreatorPostsTab extends StatelessWidget {
   final String targetUserId;
@@ -13,7 +13,6 @@ class CreatorPostsTab extends StatelessWidget {
     required this.englishActive,
   });
 
-  // Fungsi Toggle Like secara Interaktif langsung ke Firestore Array
   Future<void> _toggleLikePost(
     String postId,
     List<dynamic> currentLikes,
@@ -233,7 +232,6 @@ class CreatorPostsTab extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // 1. TOMBOL LIKE INTERAKTIF
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () =>
@@ -270,8 +268,6 @@ class CreatorPostsTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-
-                        // 2. TOMBOL KOMENTAR SEKARANG LANGSUNG MEMBUKA COMMENTPAGE ANDA
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: () => _openCommentSection(
@@ -279,7 +275,7 @@ class CreatorPostsTab extends StatelessWidget {
                             docId,
                             authorName,
                             contentText,
-                          ), // 🟢 Oper parameter secara lengkap
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8.0,

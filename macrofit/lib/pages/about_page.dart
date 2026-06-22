@@ -36,8 +36,6 @@ class AboutPage extends StatelessWidget {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
-
-            // Detail Informasi
             const Divider(),
             _buildInfoTile(Icons.code, "App Developer", "Steven Gunawan"),
             _buildInfoTile(
@@ -59,7 +57,6 @@ class AboutPage extends StatelessWidget {
     );
   }
 
-  // Widget helper agar kode lebih rapi
   Widget _buildInfoTile(IconData icon, String label, String value) {
     return ListTile(
       leading: Icon(icon, color: Colors.blue),

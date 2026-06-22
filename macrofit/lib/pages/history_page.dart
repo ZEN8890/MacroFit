@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/database_services.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -37,11 +37,9 @@ class _HistoryPageState extends State<HistoryPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final user = FirebaseAuth.instance.currentUser;
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus seluruh halaman History dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
-        // Pemetaan translasi teks lokal dinamis pada filter chart harian/mingguan/tahunan
         if (selectedFilter == 'Harian' && englishActive) {
           selectedFilter = 'Daily';
         }
@@ -97,8 +95,6 @@ class _HistoryPageState extends State<HistoryPage> {
 
                     var userData =
                         userSnapshot.data!.data() as Map<String, dynamic>;
-
-                    // 🟢 SOLUSI UTAMA: Pecah logika penerjemahan database ke variabel bersih di luar parameter
                     final String internalDbFilter = selectedFilter == 'Daily'
                         ? 'Harian'
                         : selectedFilter == 'Weekly'
@@ -108,7 +104,6 @@ class _HistoryPageState extends State<HistoryPage> {
                         : selectedFilter;
 
                     return StreamBuilder<QuerySnapshot>(
-                      // 🟢 SEKARANG JAUH LEBIH BERSIH & AMAN DARI ERROR TOKEN
                       stream: DatabaseService().getFilteredFoodLogs(
                         user.uid,
                         internalDbFilter,
@@ -128,11 +123,11 @@ class _HistoryPageState extends State<HistoryPage> {
                         return ListView(
                           padding: const EdgeInsets.all(20),
                           children: [
-                            // --- 1. FILTER SECTION ---
+                            // Filter
                             _buildFilterSegment(colorScheme, englishActive),
                             const SizedBox(height: 25),
 
-                            // --- 2. STATISTIC SECTION ---
+                            //Statistic Chart
                             _buildDynamicChart(
                               docs,
                               userData,
@@ -141,7 +136,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             ),
                             const SizedBox(height: 30),
 
-                            // --- 3. LIST HISTORY SECTION ---
+                            //History list
                             Text(
                               englishActive
                                   ? "Consumption List (${docs.length})"
@@ -353,7 +348,6 @@ class _HistoryPageState extends State<HistoryPage> {
                       strokeWidth: 2,
                       dashArray: [5, 5],
                       label: HorizontalLineLabel(
-                        // 🟢 FIX: Diubah dari HorizontalLineLineLabel menjadi HorizontalLineLabel
                         show: true,
                         alignment: Alignment.topRight,
                         style: const TextStyle(

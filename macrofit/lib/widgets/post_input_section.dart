@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class PostInputSection extends StatelessWidget {
   final TextEditingController controller;
@@ -31,7 +31,6 @@ class PostInputSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus area input dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -70,7 +69,6 @@ class PostInputSection extends StatelessWidget {
                         minLines: 1,
                         keyboardType: TextInputType.multiline,
                         decoration: InputDecoration(
-                          // 🟢 DINAMIS MULTI-BAHASA PADA HINT TEKS
                           hintText: englishActive
                               ? 'Type your thoughts here...'
                               : 'Tuliskan pikiranmu di sini...',
@@ -194,7 +192,6 @@ class PostInputSection extends StatelessWidget {
                               ),
                             ),
                             onPressed: () async {
-                              // Validasi dasar: Jangan ijinkan posting jika teks dan gambar kosong
                               if (controller.text.trim().isEmpty &&
                                   selectedImages.isEmpty) {
                                 return;
@@ -202,8 +199,6 @@ class PostInputSection extends StatelessWidget {
 
                               final isDark =
                                   theme.brightness == Brightness.dark;
-
-                              // 1. TAMPILKAN POP-UP KONFIRMASI POSTING
                               bool confirmPost =
                                   await showDialog<bool>(
                                     context: context,
@@ -231,14 +226,12 @@ class PostInputSection extends StatelessWidget {
                                                 : 'Apakah Anda yakin ingin membagikan ini ke forum komunitas?',
                                             style: TextStyle(
                                               fontSize: 13,
-                                              // Menyesuaikan kontras teks deskripsi dialog
                                               color: isDark
                                                   ? Colors.white60
                                                   : Colors.black54,
                                             ),
                                           ),
                                           const SizedBox(height: 16),
-                                          // PRATINJAU ISI POSTINGAN
                                           Container(
                                             width: double.infinity,
                                             padding: const EdgeInsets.all(12),
@@ -275,7 +268,6 @@ class PostInputSection extends StatelessWidget {
                                                             .isNotEmpty
                                                         ? FontStyle.italic
                                                         : FontStyle.normal,
-                                                    // 🟢 ADAPTIF KONTRAS TINGGI: menggunakan onSurface (Putih di Dark / Hitam di Light)
                                                     color:
                                                         controller.text
                                                             .trim()
@@ -354,11 +346,7 @@ class PostInputSection extends StatelessWidget {
                                     ),
                                   ) ??
                                   false;
-
-                              // 2. Jika user membatalkan, jangan teruskan fungsi eksekusi
                               if (!confirmPost) return;
-
-                              // 3. Panggil fungsi asli untuk memproses pembuatan post di Firestore
                               onCreatePost();
                             },
                             child: Text(

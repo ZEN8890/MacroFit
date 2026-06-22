@@ -408,11 +408,8 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // 🟢 FILE MODULAR 2: Bagian foto profil dan info identitas
                   ProfileHeaderSection(userData: userData),
                   const SizedBox(height: 24),
-
-                  // 🟢 FILE MODULAR 3: Panel input metrik fisik 2 kolom + umur otomatis
                   InlineHealthMetricsCard(
                     userId: user.uid,
                     initialWeight: currentWeight,
@@ -422,8 +419,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     isDarkMode: themeProvider.isDarkMode,
                   ),
                   const SizedBox(height: 16),
-
-                  // PENGATURAN BAHASA CARD
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -474,7 +469,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  // TENTANG APLIKASI CARD
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -509,7 +503,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  // DISPLAY MODE SWITCH CARD
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -551,8 +544,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-
-                  // 🟢 FILE MODULAR 4: Input Bio Card reaktif
                   InlineBioCard(
                     userId: user.uid,
                     initialBio: bio,
@@ -561,7 +552,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // PROGRAM DIET FOCUS DROPDOWN CARD
                   Card(
                     elevation: 0,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -643,7 +633,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  // STATUS SERTIFIKASI CARD
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(

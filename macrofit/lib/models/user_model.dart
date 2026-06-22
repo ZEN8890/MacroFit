@@ -1,3 +1,4 @@
+//class untuk menampung data user yang diambil dari API
 class UserModel {
   final String uid;
   final String firstName;

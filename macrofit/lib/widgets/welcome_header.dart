@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class WelcomeHeader extends StatelessWidget {
   final String name;
@@ -8,10 +8,8 @@ class WelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil colorScheme dari context agar tetap sinkron dengan tema aplikasi
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus header dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -19,7 +17,6 @@ class WelcomeHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              // 🟢 TRANSLASI JUDUL DWI-BAHASA
               englishActive ? "Today's Statistics," : "Statistik Hari Ini,",
               style: TextStyle(
                 color: colorScheme.onSurface.withOpacity(0.6),

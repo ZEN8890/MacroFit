@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class CalorieTargetCard extends StatelessWidget {
   final int targetCal;
-  final int consumedCal; // Parameter kalori yang dikonsumsi
+  final int consumedCal;
 
   const CalorieTargetCard({
     super.key,
     required this.targetCal,
-    required this.consumedCal, // Wajib diisi saat memanggil card ini
+    required this.consumedCal,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Hitung persentase untuk progress bar (maksimal 1.0 agar tidak crash jika surplus)
     double progress = targetCal > 0 ? (consumedCal / targetCal) : 0.0;
     double clampedProgress = progress.clamp(0.0, 1.0);
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus visual kartu dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -40,7 +36,6 @@ class CalorieTargetCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        // 🟢 JUDUL KARTU DWI-BAHASA
                         englishActive
                             ? "Daily Calorie Achievement"
                             : "Pencapaian Kalori Harian",
@@ -55,7 +50,6 @@ class CalorieTargetCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          // Kalori yang sudah dimakan
                           Text(
                             "$consumedCal",
                             style: TextStyle(
@@ -66,7 +60,6 @@ class CalorieTargetCard extends StatelessWidget {
                                   : colorScheme.primary,
                             ),
                           ),
-                          // Pembagi target maksimal
                           Text(
                             englishActive
                                 ? " / $targetCal kcal"
@@ -81,7 +74,6 @@ class CalorieTargetCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // Ikon Petir Petunjuk
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -97,8 +89,6 @@ class CalorieTargetCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 15),
-
-              // --- VISUAL PROGRESS BAR ---
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
@@ -111,8 +101,6 @@ class CalorieTargetCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // Keterangan Sisa / Surplus Kalori
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

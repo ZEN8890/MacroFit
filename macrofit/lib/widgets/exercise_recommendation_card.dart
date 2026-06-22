@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class ExerciseRecommendationCard extends StatelessWidget {
   final String dietCode;
-
   const ExerciseRecommendationCard({super.key, required this.dietCode});
 
-  // 🔥 FUNGSI MODULAR: Menampilkan Popup Detail Panduan Olahraga Mingguan
   void _showDetailedExercisePlan(
     BuildContext context,
     Map<String, dynamic> plan,
@@ -43,8 +41,6 @@ class ExerciseRecommendationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-
-              // Header Pop Up
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -89,14 +85,11 @@ class ExerciseRecommendationCard extends StatelessWidget {
                 ),
               ),
               const Divider(),
-
-              // Konten Detail Jadwal (Scrollable)
               Flexible(
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   shrinkWrap: true,
                   children: [
-                    // Informasi Ringkas Ringkasan Gizi-Olahraga
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -133,8 +126,6 @@ class ExerciseRecommendationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-
-                    // Generator List Rencana Hari Senin - Minggu
                     ...activeSchedule.map((dayPlan) {
                       final bool isRest =
                           dayPlan['activity'] == 'Rest Day' ||

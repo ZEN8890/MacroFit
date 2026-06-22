@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class ImagePreviewPage extends StatefulWidget {
   final List<String> imageUrls;
@@ -48,7 +48,6 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     );
 
     try {
-      // 1. Ambil bytes gambar menggunakan Dio
       var response = await Dio().get(
         url,
         options: Options(responseType: ResponseType.bytes),
@@ -56,13 +55,11 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
       final Uint8List bytes = Uint8List.fromList(response.data);
 
-      // 2. Simpan langsung ke galeri menggunakan Gal
       await Gal.putImageBytes(bytes);
 
-      if (mounted) Navigator.pop(context); // Tutup loading dialog
+      if (mounted) Navigator.pop(context);
 
       if (mounted) {
-        // 🟢 DINAMIS MULTI-BAHASA PADA NOTIFIKASI SUKSES SIMPAN
         Notify.success(
           context,
           isEnglishNotifier.value
@@ -71,10 +68,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         );
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Tutup loading dialog jika gagal
+      if (mounted) Navigator.pop(context);
 
       if (mounted) {
-        // 🟢 DINAMIS MULTI-BAHASA PADA NOTIFIKASI GAGAL SIMPAN
         Notify.error(
           context,
           isEnglishNotifier.value
@@ -99,7 +95,6 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus halaman pratinjau gambar dengan ValueListenableBuilder
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {

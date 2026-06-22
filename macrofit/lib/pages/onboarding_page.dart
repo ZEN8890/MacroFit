@@ -12,7 +12,6 @@ import '../utils/global_state.dart';
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
-  // 🟢 PERBAIKAN DI SINI: Letakkan variabel static di dalam class utama (bukan di dalam State)
   static bool cameFromLoginButton = false;
 
   @override
@@ -138,7 +137,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Pengecekan aman menggunakan nama kelas OnboardingPage
       if (!OnboardingPage.cameFromLoginButton) {
         if (FirebaseAuth.instance.currentUser != null) {
           await FirebaseAuth.instance.signOut();

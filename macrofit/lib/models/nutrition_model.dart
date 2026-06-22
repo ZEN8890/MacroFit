@@ -1,3 +1,4 @@
+//class untuk menampung data nutrisi yang diambil dari API
 class NutritionModel {
   final int targetCalMin;
   final int targetCalMax;

@@ -37,7 +37,6 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
-  // 2. Fungsi pembantu untuk scroll otomatis ke bawah
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -83,7 +82,6 @@ class _HomePageState extends State<HomePage>
       setState(() {
         _tempFoodData = result;
       });
-      // 3. Panggil fungsi scroll setelah card tampil
       _scrollToBottom();
     }
   }
@@ -223,8 +221,7 @@ class _HomePageState extends State<HomePage>
               ),
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               body: ListView(
-                controller:
-                    _scrollController, // 4. Pasangkan controller di sini
+                controller: _scrollController,
                 padding: const EdgeInsets.all(20),
                 children: [
                   WelcomeHeader(name: userData['first_name'] ?? "User"),

@@ -102,7 +102,7 @@ class AuthWrapper extends StatelessWidget {
               if (hasCompletedOnboarding) {
                 return const NavigationMenu(key: ValueKey('main_nav'));
               } else {
-                return const OnboardingPage(); // Buka Onboarding secara normal
+                return const OnboardingPage();
               }
             },
           );

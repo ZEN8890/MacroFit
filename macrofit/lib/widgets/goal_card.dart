@@ -19,7 +19,6 @@ class GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Kita gunakan warna hijau sukses khusus untuk goal
     const successColor = Colors.green;
 
     return GestureDetector(
@@ -57,7 +56,6 @@ class GoalCard extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      // Jika terpilih kita beri warna hijau agar kontras, jika tidak ikut tema
                       color: isSelected ? successColor : colorScheme.onSurface,
                     ),
                   ),

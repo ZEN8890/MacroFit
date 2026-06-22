@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/recipe_card.dart';
 import '../pages/public_profile_page.dart';
-import '../utils/global_state.dart'; // Membaca isEnglishNotifier global
+import '../utils/global_state.dart';
 
 class RecipeStreamView extends StatefulWidget {
   final String filterType;
@@ -51,7 +51,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
     super.dispose();
   }
 
-  // 🟢 PERBAIKAN LOGIKA BAHASA: Label kategori diet dinamis menyesuaikan status isEnglish secara real-time
   String formatDietLabel(String dietValue, bool isEnglishActive) {
     switch (dietValue) {
       case 'All':
@@ -83,7 +82,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 STRUKTUR REAKTIF: Bungkus widget utama dengan ValueListenableBuilder agar peka terhadap perubahan switch profil
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -118,7 +116,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    // 🟢 DINAMIS MULTI-BAHASA
                     hintText: englishActive
                         ? 'Search recipes...'
                         : 'Cari resep...',
@@ -150,7 +147,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Text(
-                          // 🟢 DINAMIS MULTI-BAHASA PADA FALLBACK KOSONG
                           widget.filterType == 'AI'
                               ? (englishActive
                                     ? 'No menu recommendations today. Tap the lightning bolt button above!'
@@ -244,7 +240,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                // 🟢 DINAMIS MULTI-BAHASA
                                 englishActive
                                     ? "Filter Diet Category:"
                                     : "Filter Kategori Diet:",
@@ -289,7 +284,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                                     .map<DropdownMenuItem<String>>((
                                       String key,
                                     ) {
-                                      // Lempar status englishActive ke fungsi helper terjemahan label diet
                                       String label = formatDietLabel(
                                         key,
                                         englishActive,
@@ -330,7 +324,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                // 🟢 DINAMIS MULTI-BAHASA
                                 englishActive
                                     ? "Saved Collection Library: ${dietCounts['All'] ?? 0} / 50 Recipes"
                                     : "Library Koleksi Tersimpan: ${dietCounts['All'] ?? 0} / 50 Resep",
@@ -350,7 +343,6 @@ class _RecipeStreamViewState extends State<RecipeStreamView> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(24.0),
                                   child: Text(
-                                    // 🟢 DINAMIS MULTI-BAHASA
                                     widget.filterType == 'Favorites'
                                         ? (englishActive
                                               ? 'No specific recipes for "${formatDietLabel(widget.savedDietFilter, englishActive)}" diet.'

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/nutrition_model.dart';
 import 'package:flutter/foundation.dart';
-import '../utils/global_state.dart'; // 🟢 IMPORT SAKLAR GLOBAL STATE
+import '../utils/global_state.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -36,7 +36,6 @@ class DatabaseService {
     }
   }
 
-  // --- LOGIKA TAMBAH AIR ---
   Future<void> updateWaterIntake(String uid, int addMl) async {
     String today = DateTime.now().toString().split(' ')[0];
     DocumentReference dailyRef = _firestore
@@ -55,7 +54,6 @@ class DatabaseService {
     }
   }
 
-  // --- LOGIKA KURANGI AIR ---
   Future<void> removeWaterIntake(String uid, int amount) async {
     String today = DateTime.now().toString().split(' ')[0];
     DocumentReference dailyRef = _firestore
@@ -78,7 +76,6 @@ class DatabaseService {
           .timeout(const Duration(seconds: 10));
     } catch (e) {
       debugPrint("MacroFit Error - Remove Water: $e");
-      // 🟢 DINAMIS MULTI-BAHASA PADA CONTEXT THROW EXCEPTION TRANSKASI AIR
       throw Exception(
         isEnglishNotifier.value
             ? "Failed to reduce water log data: $e"
@@ -87,7 +84,6 @@ class DatabaseService {
     }
   }
 
-  // --- FUNGSI SAVE FOOD LOG ---
   Future<void> saveFoodLog(String uid, Map<String, dynamic> foodData) async {
     num safeNum(dynamic value) {
       if (value == null) return 0;
@@ -142,7 +138,6 @@ class DatabaseService {
     }
   }
 
-  // --- FUNGSI AMBIL RIWAYAT HARI INI ---
   Stream<QuerySnapshot> getTodayFoodLogs(String uid) {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
@@ -158,7 +153,6 @@ class DatabaseService {
         .snapshots();
   }
 
-  // --- FUNGSI FILTER HISTORI GRAFIK ---
   Stream<QuerySnapshot> getFilteredFoodLogs(
     String uid,
     String filterType,
@@ -166,8 +160,6 @@ class DatabaseService {
   ) {
     final now = DateTime.now();
     DateTime startDate;
-
-    // 🟢 SINKRONISASI EVALUASI STRINGS FILTER (Mendukung pengenalan kunci parameter dwi-bahasa internal)
     if (filterType == 'Harian' || filterType == 'Daily') {
       startDate = DateTime(now.year, now.month, now.day);
     } else if (filterType == 'Mingguan' || filterType == 'Weekly') {

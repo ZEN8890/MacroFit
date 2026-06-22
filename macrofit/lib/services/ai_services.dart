@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart'; // Tambahkan untuk debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AIService {
-  // 🟢 MODIFIKASI: _basePrompt diubah menjadi instruksi inti, bahasa diatur dinamis di bawah
   static const String _basePrompt = '''
   Tugas Anda adalah menganalisis objek makanan dan minuman dalam gambar atau teks.
   
@@ -47,7 +46,6 @@ class AIService {
     );
   }
 
-  // 🟢 UPDATE PARAMETER: Menambahkan isEnglish wajib
   Future<Map<String, dynamic>> analyzeFood(
     String input, {
     required bool isEnglish,
@@ -55,7 +53,6 @@ class AIService {
     if (input.isEmpty) return {};
     final model = _getModel();
 
-    // Sinkronisasi instruksi bahasa prompt teks
     String languageInstruction = isEnglish
         ? "Strictly output the 'food_name' string value in English language."
         : "Gunakan bahasa Indonesia untuk nilai properti 'food_name'.";
@@ -64,14 +61,12 @@ class AIService {
     return await _executeRequest(model, [Content.text(prompt)], isEnglish);
   }
 
-  // 🟢 UPDATE PARAMETER: Menambahkan isEnglish wajib
   Future<Map<String, dynamic>> analyzeFoodImage(
     Uint8List imageBytes, {
     required bool isEnglish,
   }) async {
     final model = _getModel();
 
-    // Sinkronisasi instruksi bahasa prompt gambar
     String languageInstruction = isEnglish
         ? "Strictly output the 'food_name' string value in English language."
         : "Gunakan bahasa Indonesia untuk nilai properti 'food_name'.";
@@ -100,7 +95,6 @@ class AIService {
             .replaceAll('```', '')
             .trim();
 
-        // DECODE JSON
         final dynamic decoded = jsonDecode(cleanText);
         Map<String, dynamic> data;
 

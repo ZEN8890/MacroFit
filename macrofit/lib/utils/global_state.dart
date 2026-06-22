@@ -1,9 +1,8 @@
-// lib/utils/global_state.dart
 import 'package:flutter/material.dart';
 
-// Mengubah variabel biasa menjadi ValueNotifier agar bisa memancarkan sinyal perubahan ke halaman lain
+//mengubah variable biasa jadi valuenotifiter
 final ValueNotifier<bool> isEnglishNotifier = ValueNotifier<bool>(false);
 
-// Getter pembantu agar kode 'isEnglish' lama Anda di halaman Profile tidak error
+// Getter isEnglish
 bool get isEnglish => isEnglishNotifier.value;
 set isEnglish(bool value) => isEnglishNotifier.value = value;

@@ -6,7 +6,6 @@ class ReplyTextHighlighter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil warna dari DefaultTextStyle agar otomatis putih/hitam
     final defaultStyle = DefaultTextStyle.of(context).style;
 
     return RichText(
@@ -21,7 +20,6 @@ class ReplyTextHighlighter extends StatelessWidget {
               ),
             );
           }
-          // Menggunakan warna yang sama dengan teks sekitarnya
           return TextSpan(
             text: "$word ",
             style: TextStyle(color: defaultStyle.color),

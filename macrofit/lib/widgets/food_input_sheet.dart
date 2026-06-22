@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/ai_services.dart';
 import '../utils/notification_helper.dart';
-import '../utils/global_state.dart'; // 100% Mengikat perubahan dari isEnglishNotifier
+import '../utils/global_state.dart';
 
 class FoodInputSheet extends StatefulWidget {
   const FoodInputSheet({super.key});
@@ -59,8 +59,6 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
 
       setState(() => _isLoading = true);
       final bytes = await photo.readAsBytes();
-
-      // 🟢 PERBAIKAN UTAMA: Menyuntikkan parameter isEnglish secara dinamis
       final result = await AIService().analyzeFoodImage(
         bytes,
         isEnglish: isEnglishNotifier.value,
@@ -84,7 +82,6 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
 
     setState(() => _isLoading = true);
     try {
-      // 🟢 PERBAIKAN UTAMA: Menyuntikkan parameter isEnglish secara dinamis
       final result = await AIService().analyzeFood(
         input,
         isEnglish: isEnglishNotifier.value,
@@ -108,8 +105,6 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    // 🟢 REAKTIF MULTI-BAHASA: Membungkus widget dengan ValueListenableBuilder agar UI langsung merespons switch profil
     return ValueListenableBuilder<bool>(
       valueListenable: isEnglishNotifier,
       builder: (context, englishActive, child) {
@@ -137,7 +132,6 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
               ),
               const SizedBox(height: 25),
               Text(
-                // 🟢 DINAMIS MULTI-BAHASA
                 englishActive ? "Log Nutrition" : "Catat Nutrisi",
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -148,7 +142,6 @@ class _FoodInputSheetState extends State<FoodInputSheet> {
                 controller: _foodController,
                 enabled: !_isLoading,
                 decoration: InputDecoration(
-                  // 🟢 DINAMIS MULTI-BAHASA
                   hintText: englishActive
                       ? "Example: 1 portion of chicken satay"
                       : "Contoh: 1 porsi sate ayam",
